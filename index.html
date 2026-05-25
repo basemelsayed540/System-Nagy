@@ -1486,6 +1486,28 @@
         });
     }
 
+    function getCurrentEmployeeName() {
+        let name = localStorage.getItem('employee_name');
+        if (!name) {
+            name = 'موظف';
+            Swal.fire({
+                title: 'اسم الموظف',
+                input: 'text',
+                inputValue: '',
+                inputPlaceholder: 'أدخل اسم الموظف',
+                showCancelButton: false,
+                confirmButtonText: 'حفظ',
+                reverseButtons: true
+            }).then(r => {
+                if (r.isConfirmed && r.value) {
+                    localStorage.setItem('employee_name', r.value);
+                    document.getElementById('employeeNameDisplay').innerText = r.value;
+                }
+            });
+        }
+        return name;
+    }
+
     function showFileName(name, source) {
         _currentFileName = name;
         const row = document.getElementById('fileNameRow');
@@ -1562,7 +1584,7 @@
                     });
                     buildCaches();
                     showFileName(file.name, 'local');
-                    modifiedCells.clear(); actionHistory = []; clearLocalStorage(); errorCache.clear(); updateChangesBadge(); renderSidebarTabs(); applyFilters(); refreshSidebar();
+                    modifiedCells.clear(); clearLocalStorage(); errorCache.clear(); updateChangesBadge(); renderSidebarTabs(); applyFilters(); refreshSidebar();
                     showLoading(false);
                 } catch(e) {
                     if (_cancelRequested) { showLoading(false); return; }
@@ -1776,7 +1798,7 @@
         const oldVal = r.rep;
         if(normalize(oldVal) !== normalize(quickAssignRepName)) {
             if (normalize(oldVal) && !confirm(`المندوب الحالي: "${oldVal}"\nهل تريد استبداله بـ "${quickAssignRepName}"؟`)) return;
-            actionHistory.push({ id, col: 'rep', oldVal, newVal: quickAssignRepName, time: new Date() });
+            actionHistory.push({ id, col: 'rep', oldVal, newVal: quickAssignRepName, time: new Date(), employee: getCurrentEmployeeName(), fileName: _currentFileName });
             if (!modifiedCells.has(id+'_rep')) {
                 modifiedCells.set(id+'_rep', oldVal);
             } else {
@@ -1800,7 +1822,7 @@
         errorCache.delete(id);
         const oldVal = r[c];
         if(normalize(oldVal) !== normalize(v)) { 
-            actionHistory.push({ id, col: c, oldVal, newVal: v, time: new Date() });
+            actionHistory.push({ id, col: c, oldVal, newVal: v, time: new Date(), employee: getCurrentEmployeeName(), fileName: _currentFileName });
             
             if (!modifiedCells.has(id+'_'+c)) {
                 modifiedCells.set(id+'_'+c, oldVal);
@@ -2104,7 +2126,7 @@
             const r = fullDataset.find(x => x._id == id);
             if (r && normalize(r.rep) !== rep) {
                 const oldVal = r.rep;
-                actionHistory.push({ id: parseInt(id), col: 'rep', oldVal, newVal: rep, time: new Date() });
+                actionHistory.push({ id: parseInt(id), col: 'rep', oldVal, newVal: rep, time: new Date(), employee: getCurrentEmployeeName(), fileName: _currentFileName });
                 
                 if (!modifiedCells.has(id + '_rep')) modifiedCells.set(id + '_rep', oldVal);
                 else if (normalize(rep) === normalize(modifiedCells.get(id + '_rep'))) modifiedCells.delete(id + '_rep');
@@ -2131,7 +2153,7 @@
             const r = fullDataset.find(x => x._id == id);
             if (r && normalize(r.status) !== status) {
                 const oldVal = r.status;
-                actionHistory.push({ id: parseInt(id), col: 'status', oldVal, newVal: status, time: new Date() });
+                actionHistory.push({ id: parseInt(id), col: 'status', oldVal, newVal: status, time: new Date(), employee: getCurrentEmployeeName(), fileName: _currentFileName });
                 
                 if (!modifiedCells.has(id + '_status')) modifiedCells.set(id + '_status', oldVal);
                 else if (normalize(status) === normalize(modifiedCells.get(id + '_status'))) modifiedCells.delete(id + '_status');
@@ -2303,6 +2325,31 @@
             }));
             const wb = XLSX.utils.book_new();
             XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            // إضافة ورقة سجل العمليات
+            if (actionHistory.length) {
+                const empName = localStorage.getItem('employee_name') || 'موظف';
+                const historyRows = [...actionHistory].reverse().map(a => {
+                    const r = fullDataset.find(x => x._id === a.id);
+                    return {
+                        'الموظف': a.employee || empName,
+                        'الوقت': a.time ? a.time.toLocaleString('ar-EG') : '',
+                        'اسم الملف': a.fileName || '',
+                        'اسم العميل': r ? r.customerName : 'مجهول',
+                        'المنتج': r ? r.product : '',
+                        'الهاتف': r ? r.phone : '',
+                        'هاتف بديل': r ? r.altPhone : '',
+                        'الراسل': r ? r.sender : '',
+                        'المبلغ': r ? r.amount : '',
+                        'المندوب': r ? r.rep : '',
+                        'الحالة': r ? r.status : '',
+                        'الحقل المعدل': colDisplay[a.col] || a.col,
+                        'القيمة القديمة': a.oldVal || '(فارغ)',
+                        'القيمة الجديدة': a.newVal || '(فارغ)'
+                    };
+                });
+                const historyWs = XLSX.utils.json_to_sheet(historyRows);
+                XLSX.utils.book_append_sheet(wb, historyWs, "سجل العمليات");
+            }
             const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
             checkCancel();
 
@@ -2332,7 +2379,6 @@
             checkCancel();
 
             modifiedCells.clear();
-            actionHistory = [];
             clearLocalStorage();
             showLoading(true, 'جاري تحديث الجدول...', 90);
             updateChangesBadge();
@@ -2520,6 +2566,7 @@
             if (result.isConfirmed) {
                 const existingCodes = new Set(fullDataset.map(r => r.code).filter(Boolean));
                 
+                const empName = getCurrentEmployeeName();
                 targetRows.forEach(r => {
                     let newCode;
                     do {
@@ -2531,8 +2578,10 @@
                         newCode = `AR-${dateStr}-${randomStr}`;
                     } while (existingCodes.has(newCode));
                     
+                    const oldVal = r.code;
                     r.code = newCode;
                     existingCodes.add(newCode);
+                    actionHistory.push({ id: r._id, col: 'code', oldVal, newVal: newCode, time: new Date(), employee: empName, fileName: _currentFileName });
                 });
                 
                 invalidateCaches();
@@ -2750,49 +2799,80 @@
     function showHistory() {
         if (!actionHistory.length) return Swal.fire('تنبيه', 'لا يوجد سجل عمليات حتى الآن', 'info');
         
-        const renderItems = (term = "") => {
+        const colOptions = Array.from(new Set(actionHistory.map(a => a.col)));
+        const fileOptions = Array.from(new Set(actionHistory.map(a => a.fileName).filter(Boolean)));
+
+        const renderItems = (filterCol = "", filterFile = "") => {
             const filtered = actionHistory.filter(a => {
                 const r = fullDataset.find(x => x._id === a.id);
-                const customer = r ? r.customerName : "مجهول";
-                const colName = colDisplay[a.col] || a.col;
-                const searchStr = `${customer} ${colName} ${a.oldVal} ${a.newVal}`.toLowerCase();
-                return !term || searchStr.includes(term.toLowerCase());
+                if (!r) return false;
+                if (filterCol && a.col !== filterCol) return false;
+                if (filterFile && a.fileName !== filterFile) return false;
+                return true;
             });
 
             if (!filtered.length) return '<div class="text-center py-3 text-muted">لا توجد نتائج مطابقة</div>';
 
             return [...filtered].reverse().map(a => {
                 const r = fullDataset.find(x => x._id === a.id);
-                const customer = r ? r.customerName : "مجهول";
+                if (!r) return '';
                 const colName = colDisplay[a.col] || a.col;
                 return `
-                    <div class="border-bottom py-2 mb-2">
-                        <div class="d-flex justify-content-between align-items-center">
+                    <div class="border-bottom py-2 mb-2" style="font-size:0.8rem">
+                        <div class="d-flex justify-content-between align-items-center mb-1">
                             <span class="badge bg-secondary">${a.time.toLocaleTimeString()}</span>
-                            <strong class="text-primary">${customer}</strong>
+                            <strong class="text-primary">${escapeHtml(r.customerName || 'مجهول')}</strong>
+                            ${a.employee ? `<span class="badge bg-info">${escapeHtml(a.employee)}</span>` : ''}
                         </div>
-                        <div class="small mt-1">تعديل <b>${colName}</b> من <i>${a.oldVal || '(فارغ)'}</i> إلى <b>${a.newVal || '(فارغ)'}</b></div>
+                        <div class="small d-flex gap-2 mb-1">
+                            ${a.fileName ? `<span class="badge bg-light text-dark" style="font-size:0.65rem">${escapeHtml(a.fileName)}</span>` : ''}
+                            <span class="small text-muted" style="color:var(--warning)">تعديل <b>${colName}</b> من <i>${escapeHtml(a.oldVal) || '(فارغ)'}</i> إلى <b>${escapeHtml(a.newVal) || '(فارغ)'}</b></span>
+                        </div>
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 12px;padding:4px 6px;background:rgba(0,0,0,0.03);border-radius:6px">
+                            <span><b>المنتج:</b> ${escapeHtml(r.product || '-')}</span>
+                            <span><b>الهاتف:</b> ${escapeHtml(r.phone || '-')}</span>
+                            <span><b>هاتف بديل:</b> ${escapeHtml(r.altPhone || '-')}</span>
+                            <span><b>الراسل:</b> ${escapeHtml(r.sender || '-')}</span>
+                            <span><b>المبلغ:</b> ${escapeHtml(r.amount || '-')}</span>
+                            <span><b>المندوب:</b> ${escapeHtml(r.rep || '-')}</span>
+                            <span style="grid-column:1/-1"><b>الحالة:</b> ${escapeHtml(r.status || '-')}</span>
+                        </div>
                     </div>
                 `;
             }).join('');
         };
 
         Swal.fire({
-            title: 'سجل العمليات الأخير',
+            title: 'سجل العمليات',
             html: `
-                <div class="text-end mb-3"><input type="text" id="historySearch" class="form-control form-control-sm rounded-pill" placeholder="بحث في السجل..."></div>
+                <div class="text-end mb-2 d-flex gap-2">
+                    <select id="historyFilterSelect" class="form-select form-select-sm rounded-pill" style="flex:1">
+                        <option value="">كل الأعمدة</option>
+                        ${colOptions.map(c => `<option value="${c}">${colDisplay[c] || c}</option>`).join('')}
+                    </select>
+                    ${fileOptions.length ? `
+                    <select id="historyFileFilter" class="form-select form-select-sm rounded-pill" style="flex:1">
+                        <option value="">كل الملفات</option>
+                        ${fileOptions.map(f => `<option value="${f}">${escapeHtml(f)}</option>`).join('')}
+                    </select>` : ''}
+                </div>
+                <div style="font-size:0.75rem;color:var(--text-muted,#94a3b8);text-align:center;margin-bottom:6px">إجمالي العمليات: ${actionHistory.length}</div>
                 <div class="text-end" id="historyItemsContainer" style="max-height: 400px; overflow-y: auto;">
                     ${renderItems()}
                 </div>
             `,
             confirmButtonText: 'إغلاق',
             customClass: { popup: 'rounded-4' },
+            width: '750px',
             didOpen: () => {
-                const input = Swal.getHtmlContainer().querySelector('#historySearch');
-                input.oninput = (e) => {
-                    const container = Swal.getHtmlContainer().querySelector('#historyItemsContainer');
-                    container.innerHTML = renderItems(e.target.value);
+                const select = Swal.getHtmlContainer().querySelector('#historyFilterSelect');
+                const fileSelect = Swal.getHtmlContainer().querySelector('#historyFileFilter');
+                const container = Swal.getHtmlContainer().querySelector('#historyItemsContainer');
+                const update = () => {
+                    container.innerHTML = renderItems(select ? select.value : '', fileSelect ? fileSelect.value : '');
                 };
+                select.onchange = update;
+                if (fileSelect) fileSelect.onchange = update;
             }
         });
     }
@@ -3024,6 +3104,7 @@
         // 3. توليد أكواد فريدة للشحنات المكررة أو بدون كود
         const seenCodes = new Set();
         let generatedCount = 0;
+        const uploadEmpName = getCurrentEmployeeName();
         payload.forEach((r, pi) => {
             const code = r["كود الشحنة"];
             if (!code || seenCodes.has(code)) {
@@ -3031,10 +3112,12 @@
                 r["كود الشحنة"] = newCode;
                 generatedCount++;
                 const origIdx = rowsWithIdx[pi].idx;
+                const oldCode = fullDataset[origIdx].code;
                 fullDataset[origIdx].code = newCode;
                 fullDataset[origIdx]['حدث'] = 'توليد كود';
                 if (!modifiedCells.has(origIdx+'_code')) modifiedCells.set(origIdx+'_code', '');
                 if (!modifiedCells.has(origIdx+'_حدث')) modifiedCells.set(origIdx+'_حدث', 'توليد كود');
+                actionHistory.push({ id: origIdx, col: 'code', oldVal: oldCode, newVal: newCode, time: new Date(), employee: uploadEmpName, fileName: _currentFileName });
             }
             seenCodes.add(r["كود الشحنة"]);
         });
@@ -3054,11 +3137,14 @@
             });
             if (!isConfirmed) return;
             const dailyVal = normalize(value);
+            const uploadDailyEmpName = getCurrentEmployeeName();
             emptyDailyIndices.forEach(pi => {
                 payload[pi]["اليومية"] = dailyVal;
                 const origIdx = rowsWithIdx[pi].idx;
+                const oldDaily = fullDataset[origIdx]["اليومية"];
                 fullDataset[origIdx]["اليومية"] = dailyVal;
                 if (!modifiedCells.has(origIdx+'_اليومية')) modifiedCells.set(origIdx+'_اليومية', '');
+                actionHistory.push({ id: origIdx, col: 'daily', oldVal: oldDaily, newVal: dailyVal, time: new Date(), employee: uploadDailyEmpName, fileName: _currentFileName });
             });
         }
 
