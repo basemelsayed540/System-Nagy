@@ -1,0 +1,3621 @@
+<!DOCTYPE html>
+<html dir="rtl" lang="ar">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
+    <title>نظام إدارة الشحنات | لوحة التسكين</title>
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.rtl.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.sheetjs.com/xlsx-0.20.2/package/dist/xlsx.full.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+        * { box-sizing: border-box; }
+        :root {
+            --primary: #3b82f6; --success: #10b981; --warning: #f59e0b;
+            --danger: #ef4444; --info: #06b6d4; --card-bg: #ffffff;
+            --bg-color: #f8fafc; --text-color: #1e293b; --border: #e2e8f0;
+            --table-header-start: #172033; --table-header-end: #2f3d55;
+            --table-header-border: #0f172a; --table-header-shadow: rgba(15, 23, 42, 0.2);
+            --table-header-accent: #38bdf8;
+        }
+
+        [data-bs-theme="dark"] {
+            --card-bg: #1e293b; --bg-color: #0f172a; --text-color: #f8fafc; --border: #334155;
+            --table-header-start: #111827; --table-header-end: #1f2937;
+            --table-header-border: #020617; --table-header-shadow: rgba(0, 0, 0, 0.45);
+            --table-header-accent: #22d3ee;
+        }
+        [data-bs-theme="dark"] .swal2-popup { background: #1e293b; color: #f8fafc; }
+        [data-bs-theme="dark"] .swal2-title { color: #f8fafc; }
+        [data-bs-theme="dark"] .swal2-html-container { color: #cbd5e1; }
+        [data-bs-theme="dark"] .swal2-cancel.swal2-styled { background: #334155 !important; color: #f8fafc !important; }
+
+        body {
+            font-family: 'Cairo', sans-serif; background: var(--bg-color); color: var(--text-color);
+            transition: background 0.2s, color 0.2s; margin: 0; padding: 20px;
+        }
+
+        .main-container { max-width: 1600px; margin: 0 auto; }
+
+        /* Professional Stats Cards */
+        .toolbar-card {
+            background: var(--card-bg); border-radius: 24px; border: 1px solid var(--border);
+            padding: 1.5rem; margin-bottom: 1.8rem; box-shadow: 0 4px 12px rgba(0,0,0,0.02);
+        }
+
+        .toolbar-stats-cards {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+            gap: 1rem; flex: 1;
+        }
+
+        .toolbar-stat-card {
+            background: var(--card-bg); border: 1px solid var(--border); border-radius: 20px;
+            padding: 1rem; text-align: right; transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative; overflow: hidden; display: flex; flex-direction: column;
+            justify-content: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); min-height: 85px;
+        }
+
+        .toolbar-stat-icon {
+            position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+            font-size: 2rem; opacity: 0.1; transition: all 0.3s ease; color: var(--text-color);
+        }
+
+        .toolbar-stat-card:hover { transform: translateY(-5px) scale(1.02); box-shadow: 0 12px 24px -10px rgba(0,0,0,0.15); border-color: var(--primary); }
+        .toolbar-stat-card:hover .toolbar-stat-icon { opacity: 0.2; transform: translateY(-50%) scale(1.1); }
+
+        .toolbar-stat-filter { cursor: pointer; }
+        .toolbar-stat-filter.active {
+            background: linear-gradient(135deg, var(--primary) 0%, #1d4ed8 100%);
+            border-color: transparent; box-shadow: 0 10px 20px -5px rgba(37, 99, 235, 0.4);
+        }
+
+        .toolbar-stat-filter.active .toolbar-stat-label,
+        .toolbar-stat-filter.active .toolbar-stat-value,
+        .toolbar-stat-filter.active .toolbar-stat-icon { color: #ffffff !important; opacity: 1; }
+
+        .toolbar-stat-label { display: block; font-size: 0.75rem; font-weight: 700; color: #64748b; margin-bottom: 2px; z-index: 2; }
+        .toolbar-stat-value { display: block; font-size: 1.25rem; font-weight: 800; line-height: 1.2; color: var(--text-color); z-index: 2; }
+
+        .card-total { border-right: 4px solid var(--primary); }
+        .card-visible { border-right: 4px solid var(--info); }
+        .card-with-rep { border-right: 4px solid var(--success); }
+        .card-without-rep { border-right: 4px solid var(--warning); }
+        .card-amount { border-right: 4px solid #8b5cf6; } 
+        .card-no-phone { border-right: 4px solid var(--danger); }
+        .card-no-amount { border-right: 4px solid #f97316; }
+
+        /* Compressed Table Styles */
+        .shipments-table-wrapper { flex: 1; min-width: 0; background: var(--card-bg); border-radius: 20px; border: 1px solid var(--border); overflow: hidden; display: flex; flex-direction: column; box-shadow: 0 8px 20px rgba(0,0,0,0.03); }
+        .table-top-controls { padding: 0.8rem; border-bottom: 1px solid var(--border); display: flex; gap: 0.8rem; align-items: center; }
+        .table-scroll-viewport { flex: 1; overflow: auto; max-height: 65vh; }
+        
+        .data-table { width: 100%; border-collapse: collapse; table-layout: fixed; }
+        .data-table th { 
+            position: sticky; top: 0; z-index: 10;
+            padding: 14px 10px 12px; text-align: right; font-size: 0.78rem;
+            font-weight: 800; text-transform: uppercase; letter-spacing: 0;
+            background: linear-gradient(135deg, var(--table-header-start) 0%, var(--table-header-end) 100%);
+            color: #f8fafc;
+            border-bottom: 1px solid var(--table-header-border);
+            border-left: 1px solid rgba(255, 255, 255, 0.08);
+            box-shadow: inset 0 3px 0 var(--table-header-accent), 0 8px 18px -12px var(--table-header-shadow);
+            vertical-align: top;
+        }
+        .data-table th:first-child { border-top-right-radius: 14px; }
+        .data-table th:last-child { border-top-left-radius: 14px; border-left: none; }
+        [data-bs-theme="dark"] .data-table th { 
+            background: linear-gradient(135deg, var(--table-header-start) 0%, var(--table-header-end) 100%);
+            color: #f1f5f9;
+            border-bottom: 1px solid var(--table-header-border);
+            box-shadow: inset 0 3px 0 var(--table-header-accent), 0 4px 14px -2px var(--table-header-shadow);
+        }
+        .data-table th .column-filter-trigger {
+            margin-top: 2px;
+            background: rgba(255, 255, 255, 0.09);
+            border-color: rgba(255, 255, 255, 0.16);
+            color: #f8fafc;
+            box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            min-height: 36px;
+            justify-content: center;
+        }
+        .data-table th .column-filter-trigger:hover {
+            background: rgba(255, 255, 255, 0.14);
+            border-color: rgba(255, 255, 255, 0.32);
+            transform: translateY(-1px);
+        }
+        .data-table th .column-filter-trigger.active {
+            background: rgba(56, 189, 248, 0.18);
+            border-color: rgba(125, 211, 252, 0.85);
+            color: #ffffff;
+        }
+        .data-table th .column-filter-trigger-value {
+            opacity: 0.86;
+            color: rgba(226, 232, 240, 0.9);
+            margin-top: 1px;
+        }
+        .data-table th .col-filtered {
+            box-shadow: inset 0 -3px 0 var(--table-header-accent);
+        }
+        .data-table th .resizer:hover,
+        .data-table th .resizing .resizer {
+            background: rgba(255, 255, 255, 0.6);
+            opacity: 1;
+        }
+        .resizer {
+            position: absolute;
+            left: 0; /* Since RTL, right becomes left for dragging from the left edge of header? No, RTL table headers resize from the left side usually in logic, or right. Let's try right for standard feel. */
+            top: 0;
+            height: 100%;
+            width: 5px;
+            cursor: col-resize;
+            user-select: none;
+            transition: background 0.2s;
+            z-index: 1;
+        }
+        [dir="rtl"] .resizer { left: 0; right: auto; }
+        [dir="ltr"] .resizer { right: 0; left: auto; }
+        
+        .resizer:hover, .resizing .resizer { background: var(--primary); opacity: 0.5; }
+        #bulkActionBar {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid var(--primary) !important;
+            transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.2s;
+        }
+        [data-bs-theme="dark"] #bulkActionBar {
+            background: rgba(30, 41, 59, 0.85);
+        }
+        #bulkActionBar .input-group-text, #bulkActionBar .form-control {
+            background: rgba(0,0,0,0.03);
+        }
+        [data-bs-theme="dark"] #bulkActionBar .input-group-text, [data-bs-theme="dark"] #bulkActionBar .form-control {
+            background: rgba(255,255,255,0.05);
+            color: #f8fafc;
+        }
+        #bulkActionBar .dropdown-item:hover {
+            background: rgba(59,130,246,0.08);
+        }
+        .bulk-status-wrap { position: relative; }
+        .bulk-status-wrap .dropdown-menu {
+            top: auto !important;
+            bottom: 100% !important;
+            margin-bottom: 4px;
+            transform: none !important;
+        }
+        .resizing { cursor: col-resize; }
+        .data-table tr { transition: background-color 0.2s; }
+        .data-table tr:hover { background-color: rgba(37, 99, 235, 0.04) !important; }
+        [data-bs-theme="dark"] .data-table tr:hover { background-color: rgba(37, 99, 235, 0.08) !important; }
+        .data-table td { 
+            padding: 10px 10px; border-bottom: 1px solid var(--border); 
+            font-size: 0.85rem; white-space: nowrap; overflow: hidden; 
+            text-overflow: ellipsis; vertical-align: middle;
+            color: var(--text-color); font-weight: 500;
+        }
+
+        /* Column Filter Styles */
+        .column-filter-trigger {
+            width: 100%; border: 1px solid rgba(148, 163, 184, 0.15); background: rgba(255,255,255,0.5);
+            color: inherit; border-radius: 8px; padding: 4px 6px; display: flex; flex-direction: column; align-items: stretch;
+            text-align: right; font-size: 0.7rem; font-weight: 700; transition: 0.2s; cursor: pointer;
+        }
+        [data-bs-theme="dark"] .column-filter-trigger {
+            background: rgba(30, 41, 59, 0.7);
+            border-color: rgba(71, 85, 105, 0.5);
+            color: #94a3b8;
+        }
+        .column-filter-trigger:hover { border-color: var(--primary); background: rgba(59,130,246,0.05); }
+        [data-bs-theme="dark"] .column-filter-trigger:hover { 
+            background: rgba(30, 41, 59, 1);
+            border-color: var(--primary);
+            color: #f8fafc;
+        }
+        .column-filter-trigger.active { border-color: var(--primary); background: rgba(59,130,246,0.1); color: var(--primary); }
+        .column-filter-trigger-value { font-size: 0.6rem; opacity: 0.6; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .col-filtered { box-shadow: inset 0 -3px 0 var(--primary); }
+
+        .column-filter-popup {
+            position: fixed; min-width: 180px; max-width: 240px; max-height: 280px; overflow-y: auto;
+            background: var(--card-bg); color: var(--text-color); border: 1px solid var(--border); border-radius: 12px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15); padding: 8px; z-index: 2000;
+        }
+        .column-filter-option {
+            width: 100%; border: none; background: transparent; color: var(--text-color);
+            padding: 6px 10px; text-align: right; font-size: 0.75rem; border-radius: 6px; cursor: pointer;
+        }
+        .column-filter-option:hover { background: rgba(59,130,246,0.1); }
+        .column-filter-option.clear { color: var(--danger); font-weight: bold; border-bottom: 1px solid var(--border); border-radius: 0; margin-bottom: 4px; }
+
+        /* Widths */
+        .col-select { width: 35px; min-width: 35px; }
+        .col-assign { width: 110px; min-width: 110px; }
+        .col-std { min-width: 60px; position: relative; }
+
+        /* Quick Assign */
+        .quick-assign-input { padding: 4px 8px; font-size: 0.75rem; border-radius: 15px; border: 1px solid var(--border); width: 100%; }
+        .row-assign-trigger { background: #fb923c; color: white; border: none; padding: 2px 8px; border-radius: 12px; font-size: 0.7rem; cursor: pointer; width: 100%; overflow: hidden; text-overflow: ellipsis; }
+        .row-assign-trigger.is-empty { background: #fdba74; }
+
+        /* Error Log Styles */
+        .error-log-container { max-height: 60vh; overflow-y: auto; direction: ltr; text-align: left; }
+        .error-log-container .error-entry { padding: 10px 12px; border-bottom: 1px solid var(--border-color, #e2e8f0); font-size: 0.8rem; direction: ltr; text-align: left; }
+        .error-log-container .error-entry:last-child { border-bottom: none; }
+        .error-log-container .error-time { color: #64748b; font-size: 0.7rem; font-family: monospace; }
+        .error-log-container .error-msg { color: #ef4444; font-weight: bold; margin: 2px 0; word-break: break-all; }
+        .error-log-container .error-stack { color: #94a3b8; font-size: 0.7rem; white-space: pre-wrap; word-break: break-all; max-height: 80px; overflow: hidden; cursor: pointer; }
+        .error-log-container .error-stack.expanded { max-height: none; }
+        .error-log-container .error-loc { color: #64748b; font-size: 0.7rem; }
+        .empty-error-log { text-align: center; color: #94a3b8; padding: 40px 20px; font-size: 0.95rem; }
+
+        .error-log-overlay {
+            position: fixed; inset: 0; z-index: 1200;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            display: flex; align-items: center;
+            justify-content: center; padding: 20px;
+        }
+        .error-log-overlay[hidden] { display: none !important; }
+        .error-log-card {
+            background: var(--card-bg); color: var(--text-color);
+            border: 1px solid var(--border); border-radius: 28px;
+            box-shadow: 0 26px 60px rgba(15, 23, 42, 0.24);
+            display: flex; flex-direction: column;
+            max-height: calc(100vh - 40px); overflow: hidden;
+        }
+        @media (max-width: 991.98px) {
+            .error-log-overlay { padding: 10px; }
+            .error-log-card { max-height: calc(100vh - 20px); border-radius: 22px; }
+        }
+
+        .export-dialog-overlay {
+            position: fixed; inset: 0; z-index: 1300;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            display: flex; align-items: center;
+            justify-content: center; padding: 20px;
+        }
+        .export-dialog-overlay[hidden] { display: none !important; }
+        .export-dialog-card {
+            background: var(--card-bg); color: var(--text-color);
+            border: 1px solid var(--border); border-radius: 28px;
+            box-shadow: 0 26px 60px rgba(15, 23, 42, 0.24);
+            padding: 28px;
+            width: min(480px, 100%);
+        }
+        .export-dialog-title {
+            font-size: 1.15rem; font-weight: 800;
+            margin: 0 0 18px; text-align: center;
+        }
+        .export-option-grid {
+            display: flex; flex-direction: column; gap: 12px;
+        }
+        .export-option-card {
+            display: flex; align-items: center; gap: 14px;
+            padding: 16px; border: 1px solid var(--border);
+            border-radius: 20px; cursor: pointer;
+            transition: all 0.2s; background: var(--card-bg);
+        }
+        .export-option-card:hover {
+            border-color: var(--primary);
+            box-shadow: 0 4px 12px rgba(59,130,246,0.12);
+            transform: translateY(-1px);
+        }
+        .export-option-icon {
+            width: 48px; height: 48px; flex-shrink: 0;
+            border-radius: 14px; display: flex;
+            align-items: center; justify-content: center;
+            font-size: 1.3rem;
+        }
+        .export-option-text h4 {
+            margin: 0 0 4px; font-size: 0.95rem; font-weight: 800;
+        }
+        .export-option-text p {
+            margin: 0; font-size: 0.82rem; color: #64748b;
+        }
+
+        /* Other UI components */
+        .sender-filter-sidebar { width: 260px; height: 75vh; background: var(--card-bg); border: 1px solid var(--border); border-radius: 24px; display: flex; flex-direction: column; overflow: hidden; }
+        .sender-filter-panel { display: none; flex: 1; flex-direction: column; }
+        .sender-filter-panel.active { display: flex; min-height: 0; overflow: hidden; }
+        .sender-filter-list { flex: 1; overflow-y: auto; padding: 8px; }
+        .sender-filter-item { width: 100%; padding: 8px; border: 1px solid var(--border); border-radius: 10px; margin-bottom: 4px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; font-size: 0.8rem; background: transparent; color: var(--text-color); }
+        .sender-filter-item.active { background: var(--primary); color: white; border-color: var(--primary); }
+        
+        .loading-overlay { position: fixed; inset: 0; z-index: 9999; display: none; align-items: center; justify-content: center; background: rgba(0,0,0,0.35); backdrop-filter: blur(2px); }
+        .loading-overlay .loading-card { background: var(--card-bg); border-radius: 20px; padding: 32px 40px; min-width: 300px; max-width: 420px; display: flex; flex-direction: column; align-items: center; gap: 16px; box-shadow: 0 20px 60px rgba(0,0,0,0.25); border: 1px solid var(--border); }
+        .loading-overlay .loading-spinner { width: 48px; height: 48px; }
+        .loading-overlay .spinner-ring { width: 48px; height: 48px; border: 4px solid var(--border); border-top-color: var(--primary); border-radius: 50%; animation: lspin 0.8s linear infinite; }
+        @keyframes lspin { to { transform: rotate(360deg); } }
+        .loading-overlay .loading-text { font-size: 0.9rem; color: var(--text-color); text-align: center; font-weight: 600; }
+        .loading-overlay .loading-bar { width: 100%; height: 6px; background: var(--border); border-radius: 3px; overflow: hidden; }
+        .loading-overlay .loading-bar-fill { height: 100%; width: 0; background: linear-gradient(90deg,var(--primary),#6610f2); transition: width 0.3s ease; border-radius: 3px; }
+        .loading-overlay .loading-cancel-btn { padding: 8px 24px; border-radius: 50px; border: 1px solid var(--danger); background: transparent; color: var(--danger); font-size: 0.85rem; font-weight: 600; cursor: pointer; transition: all 0.2s; margin-top: 4px; }
+        .loading-overlay .loading-cancel-btn:hover { background: var(--danger); color: white; }
+        .loading-overlay .loading-cancel-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+        .swal2-container { z-index: 10000 !important; }
+        .swal2-popup { margin: auto !important; }
+        .housing-duplicate-row { background: rgba(34, 197, 94, 0.05); }
+        .changed-cell { background: rgba(245, 158, 11, 0.15) !important; border: 1px solid var(--warning) !important; position: relative; }
+        .error-cell { background: rgba(239, 68, 68, 0.1) !important; border: 1px solid var(--danger) !important; position: relative; }
+        .error-cell::after { content: "!"; position: absolute; top: -5px; left: -5px; background: var(--danger); color: white; border-radius: 50%; width: 14px; height: 14px; font-size: 10px; display: flex; align-items: center; justify-content: center; font-weight: bold; }
+        .error-row { background-color: rgba(239, 68, 68, 0.03) !important; border-right: 5px solid var(--danger) !important; }
+        .duplicate-cell { background: rgba(244, 63, 94, 0.08) !important; color: #e11d48 !important; border-bottom: 2px solid #fda4af !important; }
+        .duplicate-phone-cell { background: rgba(59, 130, 246, 0.12) !important; border-bottom: 2px solid var(--primary) !important; }
+        .changed-row { background-color: rgba(245, 158, 11, 0.05) !important; border-right: 5px solid var(--warning) !important; }
+        
+        @keyframes pulse-danger {
+            0% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        @keyframes pulse-success {
+            0% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(16, 185, 129, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+        }
+        .btn-flash-error { animation: pulse-danger 1.5s infinite; border-width: 2px !important; }
+        .btn-flash-success { animation: pulse-success 1.5s infinite; border-width: 2px !important; }
+        .btn-flash-save { animation: pulse-save 0.35s ease-in-out infinite; border-width: 2px !important; }
+        .btn-flash-save.btn-save-modified {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%) !important;
+            box-shadow: 0 4px 12px -2px rgba(245, 158, 11, 0.5) !important;
+            border-color: #f59e0b !important;
+        }
+        @keyframes pulse-save {
+            0% { opacity: 1; transform: scale(1); }
+            25% { opacity: 0.3; transform: scale(0.95); }
+            50% { opacity: 1; transform: scale(1.05); box-shadow: 0 0 0 8px rgba(245, 158, 11, 0.4); }
+            75% { opacity: 0.3; transform: scale(0.95); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+
+        /* Dashboard Styles */
+        .dashboard-overlay { position: fixed; inset: 0; z-index: 1500; background: rgba(15, 23, 42, 0.85); backdrop-filter: blur(12px); display: flex; align-items: center; justify-content: center; padding: 20px; }
+        .dashboard-card { width: min(1300px, 100%); max-height: 95vh; background: #f8fafc; border-radius: 32px; display: flex; flex-direction: column; overflow: hidden; box-shadow: 0 40px 100px rgba(0,0,0,0.5); border: 1px solid rgba(255,255,255,0.2); }
+        .dashboard-header { padding: 1.5rem 2rem; background: white; border-bottom: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; }
+        .dashboard-body { flex: 1; overflow-y: auto; padding: 2rem; background: #f1f5f9; }
+        
+        .dashboard-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(350px, 1fr)); gap: 1.5rem; }
+        .kpi-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 2rem; }
+        
+        .kpi-card { background: white; padding: 1.5rem; border-radius: 20px; border: 1px solid #e2e8f0; display: flex; flex-direction: column; gap: 0.5rem; transition: transform 0.2s; }
+        .kpi-card:hover { transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.05); }
+        .kpi-label { font-size: 0.85rem; color: #64748b; font-weight: 600; }
+        .kpi-value { font-size: 1.75rem; font-weight: 800; color: #0f172a; }
+        .kpi-icon { width: 40px; height: 40px; border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 0.5rem; font-size: 1.2rem; }
+        
+        .chart-container { background: white; border: 1px solid #e2e8f0; border-radius: 24px; padding: 1.5rem; position: relative; min-height: 380px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
+        .chart-title { font-size: 1.1rem; font-weight: 800; margin-bottom: 1.5rem; color: #1e293b; border-right: 5px solid var(--primary); padding-right: 12px; display: flex; align-items: center; gap: 10px; }
+        
+        .d3-tooltip { position: absolute; padding: 10px 15px; background: rgba(15, 23, 42, 0.95); color: white; border-radius: 10px; font-size: 13px; pointer-events: none; opacity: 0; z-index: 2000; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1); border: 1px solid rgba(255,255,255,0.1); font-family: 'Cairo', sans-serif; backdrop-filter: blur(4px); }
+        
+        /* Enhanced Button Styles */
+        .btn {
+            font-weight: 600;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: relative;
+            overflow: hidden;
+            border-width: 1.5px;
+        }
+        
+        .btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .btn:active {
+            transform: translateY(0);
+            box-shadow: none;
+        }
+
+        .rounded-pill {
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .rounded-pill:hover {
+            padding-left: 1.5rem !important;
+            padding-right: 1.5rem !important;
+        }
+
+        .btn-sm {
+            padding: 0.4rem 1rem;
+            font-size: 0.75rem;
+        }
+
+        .btn-rounded-custom {
+            border-radius: 12px;
+        }
+
+        .btn-pill {
+            border-radius: 50px;
+        }
+
+        .btn-primary {
+            background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+            box-shadow: 0 10px 15px -3px rgba(37, 99, 235, 0.3);
+        }
+
+        .btn-success {
+            background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+        }
+
+        .btn-success:hover {
+            background: linear-gradient(135deg, #059669 0%, #047857 100%);
+            box-shadow: 0 10px 15px -3px rgba(16, 185, 129, 0.3);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            border: none;
+            box-shadow: 0 4px 6px -1px rgba(239, 68, 68, 0.2);
+        }
+
+        .btn-warning {
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            border: none;
+            color: white;
+            box-shadow: 0 4px 6px -1px rgba(245, 158, 11, 0.2);
+        }
+        
+        .btn-warning:hover { color: white; }
+
+        .btn-outline-primary:hover { background-color: var(--primary); color: white; }
+        .btn-outline-secondary:hover { background-color: #64748b; color: white; }
+        
+        /* Icon Buttons */
+        .btn-light.rounded-circle {
+            width: 36px; height: 36px; display: flex; align-items: center; justify-content: center; padding: 0;
+            background: var(--card-bg); border: 1px solid var(--border);
+        }
+        [data-bs-theme="dark"] .btn-light.rounded-circle {
+            background: #334155; border-color: #475569; color: #e2e8f0;
+        }
+        [data-bs-theme="dark"] .btn-light.rounded-circle:hover {
+            background: #475569; border-color: var(--primary); color: #f8fafc; box-shadow: 0 0 12px rgba(59,130,246,0.3);
+        }
+        [data-bs-theme="dark"] .toolbar-card .btn-outline-danger { color: #fca5a5; border-color: #ef4444; }
+        [data-bs-theme="dark"] .toolbar-card .btn-outline-danger:hover { background: #ef4444; color: #fff; }
+        [data-bs-theme="dark"] .btn-outline-dark { color: #e2e8f0; border-color: #64748b; }
+        [data-bs-theme="dark"] .btn-outline-dark:hover { background: #334155; color: #f8fafc; border-color: #94a3b8; }
+
+        .sidebar-tab-btn {
+            border-radius: 12px;
+            margin: 0 2px;
+            border-width: 1px;
+            transition: all 0.2s ease;
+        }
+
+        .sidebar-tab-btn.active {
+            background: var(--primary) !important;
+            color: white !important;
+            border-color: var(--primary) !important;
+            box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+        }
+
+        /* Modal close button */
+        .btn-close {
+            transition: transform 0.3s ease;
+        }
+        .btn-close:hover {
+            transform: rotate(90deg);
+        }
+
+        /* QR Workspace */
+        .qr-workspace-overlay {
+            position: fixed;
+            inset: 0;
+            z-index: 1200;
+            background: rgba(15, 23, 42, 0.55);
+            backdrop-filter: blur(6px);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .qr-workspace-overlay[hidden] {
+            display: none !important;
+        }
+        .qr-workspace-card {
+            width: min(1240px, 100%);
+            max-height: calc(100vh - 40px);
+            overflow: hidden;
+            background: var(--card-bg);
+            color: var(--text-color);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            box-shadow: 0 26px 60px rgba(15, 23, 42, 0.24);
+            display: flex;
+            flex-direction: column;
+        }
+        .qr-workspace-header {
+            padding: 18px 22px 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+        }
+        .qr-workspace-title {
+            font-size: 1.15rem;
+            font-weight: 800;
+            margin: 0;
+        }
+        .qr-workspace-subtitle {
+            color: #64748b;
+            font-size: 0.9rem;
+            margin-top: 4px;
+        }
+        [data-bs-theme="dark"] .qr-workspace-subtitle {
+            color: #94a3b8;
+        }
+        .qr-workspace-body {
+            display: grid;
+            grid-template-columns: 320px minmax(0, 1fr);
+            min-height: 0;
+            flex: 1;
+        }
+        .qr-workspace-side {
+            border-left: 1px solid var(--border);
+            padding: 22px 18px;
+            overflow-y: auto;
+            background:
+                radial-gradient(circle at top, rgba(14, 165, 233, 0.08), transparent 38%),
+                var(--card-bg);
+        }
+        .qr-workspace-panel {
+            display: flex;
+            flex-direction: column;
+            gap: 14px;
+        }
+        .qr-rep-card {
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            padding: 14px;
+            background: rgba(248, 250, 252, 0.74);
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        [data-bs-theme="dark"] .qr-rep-card {
+            background: rgba(15, 23, 42, 0.3);
+        }
+        .qr-rep-label {
+            font-size: 0.9rem;
+            font-weight: 800;
+        }
+        .qr-rep-note {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin: 0;
+        }
+        [data-bs-theme="dark"] .qr-rep-note {
+            color: #94a3b8;
+        }
+        .qr-rep-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        .qr-rep-actions .form-control {
+            min-width: 0;
+            flex: 1;
+        }
+        .qr-qr-box {
+            border: 1px solid var(--border);
+            border-radius: 24px;
+            padding: 16px;
+            background: rgba(255, 255, 255, 0.68);
+            text-align: center;
+        }
+        [data-bs-theme="dark"] .qr-qr-box {
+            background: rgba(15, 23, 42, 0.28);
+        }
+        .qr-qr-box h3 {
+            font-size: 1rem;
+            font-weight: 800;
+            margin: 0 0 6px;
+        }
+        .qr-qr-box p {
+            color: #64748b;
+            font-size: 0.84rem;
+            margin: 0 0 14px;
+        }
+        [data-bs-theme="dark"] .qr-qr-box p {
+            color: #94a3b8;
+        }
+        .qr-code-canvas {
+            width: 240px;
+            height: 240px;
+            margin: 0 auto;
+            background: #fff;
+            border-radius: 20px;
+            border: 1px solid #dbe4ea;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            padding: 10px;
+        }
+        .qr-code-canvas img,
+        .qr-code-canvas canvas {
+            max-width: 100%;
+            max-height: 100%;
+        }
+        .qr-link-box {
+            border: 1px solid var(--border);
+            background: rgba(148, 163, 184, 0.08);
+            border-radius: 16px;
+            padding: 10px 12px;
+            font-size: 0.82rem;
+            word-break: break-all;
+            direction: ltr;
+            text-align: left;
+            min-height: 56px;
+        }
+        .qr-status-grid {
+            display: grid;
+            gap: 10px;
+        }
+        .qr-state-badge,
+        .qr-state-note {
+            border-radius: 16px;
+            padding: 11px 13px;
+            border: 1px solid var(--border);
+            font-size: 0.9rem;
+        }
+        .qr-state-badge {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            font-weight: 700;
+        }
+        .qr-state-badge::before {
+            content: "";
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background: #f59e0b;
+            box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.14);
+            flex-shrink: 0;
+        }
+        .qr-state-badge.is-online::before {
+            background: #22c55e;
+            box-shadow: 0 0 0 4px rgba(34, 197, 94, 0.14);
+        }
+        .qr-state-note {
+            color: #475569;
+            line-height: 1.6;
+            background: rgba(248, 250, 252, 0.65);
+        }
+        [data-bs-theme="dark"] .qr-state-note {
+            color: #cbd5e1;
+            background: rgba(15, 23, 42, 0.28);
+        }
+        .qr-workspace-table {
+            padding: 20px 22px 22px;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+            min-height: 0;
+        }
+        .qr-session-summary {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            gap: 12px;
+            margin-bottom: 14px;
+            flex-wrap: wrap;
+        }
+        .qr-session-summary strong {
+            font-size: 0.98rem;
+        }
+        .qr-session-summary span {
+            color: #64748b;
+            font-size: 0.85rem;
+        }
+        [data-bs-theme="dark"] .qr-session-summary span {
+            color: #94a3b8;
+        }
+        .qr-session-table-wrap {
+            border: 1px solid var(--border);
+            border-radius: 22px;
+            overflow: auto;
+            background: var(--card-bg);
+            min-height: 0;
+            flex: 1;
+        }
+        .qr-session-table {
+            width: 100%;
+            min-width: 860px;
+            border-collapse: collapse;
+        }
+        .qr-session-table thead th {
+            position: sticky;
+            top: 0;
+            background: rgba(59, 130, 246, 0.08);
+            z-index: 1;
+            font-size: 0.88rem;
+            font-weight: 800;
+            color: #0f172a;
+            padding: 13px 12px;
+            border-bottom: 1px solid var(--border);
+            white-space: nowrap;
+        }
+        [data-bs-theme="dark"] .qr-session-table thead th {
+            color: #e2e8f0;
+            background: rgba(59, 130, 246, 0.12);
+        }
+        .qr-session-table tbody td {
+            padding: 12px;
+            border-bottom: 1px solid rgba(148, 163, 184, 0.16);
+            font-size: 0.88rem;
+            white-space: nowrap;
+        }
+        .qr-session-table tbody tr.qr-scan-new {
+            background: rgba(16, 185, 129, 0.18) !important;
+            animation: qrNewRowFade 0.55s ease-out;
+        }
+        [data-bs-theme="dark"] .qr-session-table tbody tr.qr-scan-new {
+            background: rgba(16, 185, 129, 0.22) !important;
+        }
+        @keyframes qrNewRowFade {
+            0% { background: rgba(16, 185, 129, 0.48); transform: scale(1.02); }
+            100% { background: rgba(16, 185, 129, 0.18); transform: scale(1); }
+        }
+        .qr-session-empty {
+            text-align: center;
+            color: #64748b;
+            padding: 42px 16px !important;
+            white-space: normal !important;
+        }
+        [data-bs-theme="dark"] .qr-session-empty {
+            color: #94a3b8;
+        }
+
+        @media (max-width: 991.98px) {
+            .qr-workspace-overlay {
+                padding: 10px;
+            }
+            .qr-workspace-card {
+                max-height: calc(100vh - 20px);
+                border-radius: 22px;
+            }
+            .qr-workspace-body {
+                grid-template-columns: 1fr;
+            }
+            .qr-workspace-side {
+                border-left: 0;
+                border-bottom: 1px solid var(--border);
+            }
+            .qr-code-canvas {
+                width: 210px;
+                height: 210px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div id="globalLoading" class="loading-overlay" style="display: none;">
+    <div class="loading-card">
+        <div class="loading-spinner"><div class="spinner-ring"></div></div>
+        <div class="loading-text" id="loadingText">جاري التحميل...</div>
+        <div class="loading-bar"><div class="loading-bar-fill" id="loadingBarFill"></div></div>
+        <button class="loading-cancel-btn" id="loadingCancelBtn" style="display:none">إلغاء</button>
+    </div>
+</div>
+
+<!-- QR Workspace Overlay -->
+<div id="qrWorkspaceOverlay" class="qr-workspace-overlay" hidden>
+    <div class="qr-workspace-card">
+        <div class="qr-workspace-header">
+            <div>
+                <h2 class="qr-workspace-title">QR مسح بالموبيل</h2>
+                <div class="qr-workspace-subtitle"></div>
+            </div>
+            <button id="closeQrWorkspaceBtn" type="button" class="btn btn-outline-secondary btn-sm rounded-pill">إغلاق</button>
+        </div>
+        <div class="qr-workspace-body">
+            <aside class="qr-workspace-side">
+                <div class="qr-workspace-panel">
+                    <div class="qr-qr-box">
+                        <h3>امسح هذا الـ QR من الموبايل</h3>
+                        <p>يجب أن يكون الهاتف والكمبيوتر على نفس الشبكة.</p>
+                        <div id="qrCodeCanvas" class="qr-code-canvas">جاري التجهيز...</div>
+                    </div>
+                    <div class="qr-rep-card">
+                        <div class="qr-rep-label">تعيين المندوب (إجباري)</div>
+                        <p class="qr-rep-note">اكتب اسم المندوب هنا أولًا، ثم فعّل جلسة QR.</p>
+                        <div class="qr-rep-actions">
+                            <input id="qrRepInput" type="text" class="form-control rounded-pill" placeholder="اسم المندوب">
+                            <button id="qrStartSessionBtn" type="button" class="btn btn-primary btn-sm rounded-pill">تفعيل الجلسة</button>
+                        </div>
+                    </div>
+                    <div class="qr-status-grid">
+                        <div id="qrConnectionBadge" class="qr-state-badge">
+                            <span>الموبايل: بانتظار الاتصال</span>
+                            <strong id="qrScansCount">0</strong>
+                        </div>
+                        <div id="qrSessionNote" class="qr-state-note">سيظهر هنا تنبيه الجلسة أو حالة الاتصال.</div>
+                    </div>
+                    <div id="qrSessionLink" class="qr-link-box">سيظهر رابط الجلسة هنا.</div>
+                    <button id="copyQrSessionLinkBtn" type="button" class="btn btn-outline-primary btn-sm rounded-pill">نسخ الرابط</button>
+                </div>
+            </aside>
+            <section class="qr-workspace-table">
+                <div class="qr-session-summary">
+                    <strong id="qrSessionSummaryTitle">جدول نتائج المسح</strong>
+                    <span id="qrSessionSummaryMeta">0 شحنة داخل جلسة QR</span>
+                </div>
+                <div class="qr-session-table-wrap">
+                    <table class="qr-session-table">
+                        <thead>
+                            <tr>
+                                <th>اسم العميل</th>
+                                <th>الزون</th>
+                                <th>المنتج</th>
+                                <th>رقم الهاتف</th>
+                                <th>هاتف بديل</th>
+                                <th>المبلغ</th>
+                                <th>الراسل</th>
+                                <th>كود الشحنة</th>
+                            </tr>
+                        </thead>
+                        <tbody id="qrSessionTableBody">
+                            <tr><td colspan="8" class="qr-session-empty">افتح جلسة QR وسيظهر هنا كل كود يتم مسحه من الموبايل.</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </section>
+        </div>
+    </div>
+</div>
+
+<!-- Dashboard Overlay -->
+<div id="dashboardOverlay" class="dashboard-overlay" style="display: none;">
+    <div class="dashboard-card">
+        <div class="dashboard-header bg-white">
+            <h4 class="mb-0 fw-800"><i class="fas fa-chart-line me-2 text-primary"></i> تحليلات منظومة الشحن</h4>
+            <div class="d-flex gap-3">
+                <button class="btn btn-outline-secondary btn-sm rounded-pill px-3" onclick="window.print()"><i class="fas fa-print me-1"></i> طباعة</button>
+                <button id="closeDashboardBtn" class="btn btn-light rounded-circle"><i class="fas fa-times"></i></button>
+            </div>
+        </div>
+        <div class="dashboard-body">
+            <!-- KPI Section -->
+            <div class="kpi-row">
+                <div class="kpi-card">
+                    <div class="kpi-icon bg-primary-subtle text-primary"><i class="fas fa-box"></i></div>
+                    <div class="kpi-label">إجمالي الشحنات</div>
+                    <div id="kpi-total-shipments" class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon bg-success-subtle text-success"><i class="fas fa-money-bill-wave"></i></div>
+                    <div class="kpi-label">إجمالي المبالغ</div>
+                    <div id="kpi-total-amount" class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon bg-warning-subtle text-warning"><i class="fas fa-truck-loading"></i></div>
+                    <div class="kpi-label">قيد التوصيل</div>
+                    <div id="kpi-pending-shipments" class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon bg-info-subtle text-info"><i class="fas fa-users"></i></div>
+                    <div class="kpi-label">عدد المناديب</div>
+                    <div id="kpi-total-reps" class="kpi-value">-</div>
+                </div>
+                <div class="kpi-card">
+                    <div class="kpi-icon bg-danger-subtle text-danger"><i class="fas fa-undo"></i></div>
+                    <div class="kpi-label">إجمالي المرتجعات</div>
+                    <div id="kpi-returned-shipments" class="kpi-value">-</div>
+                </div>
+            </div>
+
+            <!-- Charts Section -->
+            <div class="dashboard-grid">
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-chart-pie"></i> توزيع الحالات</div>
+                    <div id="statusChart" style="height: 300px"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-user-tie"></i> أعلى المناديب إنجازاً</div>
+                    <div id="repsChart" style="height: 300px"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-coins"></i> السيولة المالية حسب الحالة</div>
+                    <div id="amountByStatusChart" style="height: 300px"></div>
+                </div>
+                <div class="chart-container">
+                    <div class="chart-title"><i class="fas fa-store"></i> أنشط الراسلين</div>
+                    <div id="senderChart" style="height: 300px"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Error Log Overlay -->
+<div id="errorLogOverlay" class="error-log-overlay" hidden>
+    <div class="error-log-card" style="width:min(700px,100%)">
+        <div class="p-4 border-bottom d-flex justify-content-between align-items-center">
+            <h5 class="mb-0"><i class="fas fa-bug text-danger me-2"></i>سجل الأخطاء البرمجية</h5>
+            <button id="closeErrorLogBtn" class="btn btn-close"></button>
+        </div>
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background:var(--card-bg, #fff)">
+            <button id="clearErrorLogBtn" class="btn btn-outline-danger btn-sm rounded-pill px-3"><i class="fas fa-trash-alt me-1"></i>مسح الكل</button>
+            <span id="errorLogCount" class="badge bg-secondary rounded-pill">0</span>
+        </div>
+        <div class="p-3 flex-grow-1 overflow-auto">
+            <div id="errorLogContainer" class="error-log-container">
+                <div class="empty-error-log"><i class="fas fa-check-circle text-success mb-2" style="font-size:2rem;display:block"></i>لا توجد أخطاء برمجية حتى الآن</div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Export Dialog Overlay -->
+<div id="exportDialogOverlay" class="export-dialog-overlay" hidden>
+    <div class="export-dialog-card">
+        <h3 class="export-dialog-title">اختر نوع التصدير</h3>
+        <div class="export-option-grid">
+            <div class="export-option-card" id="exportRepOption">
+                <div class="export-option-icon" style="background:rgba(59,130,246,0.12);color:#3b82f6"><i class="fas fa-users"></i></div>
+                <div class="export-option-text">
+                    <h4>تصدير للمناديب</h4>
+                    <p>تقسيم الشحنات حسب اسم المندوب ورفع ملف منفصل لكل مندوب</p>
+                </div>
+            </div>
+            <div class="export-option-card" id="exportSenderOption">
+                <div class="export-option-icon" style="background:rgba(245,158,11,0.12);color:#f59e0b"><i class="fas fa-user-friends"></i></div>
+                <div class="export-option-text">
+                    <h4>تصدير للراسلين</h4>
+                    <p>تقسيم الشحنات حسب اسم الراسل ورفع ملف منفصل لكل راسل</p>
+                </div>
+            </div>
+            <div class="export-option-card" id="exportCacheOption">
+                <div class="export-option-icon" style="background:rgba(16,185,129,0.12);color:#10b981"><i class="fas fa-file-archive"></i></div>
+                <div class="export-option-text">
+                    <h4>تصدير الملف المحفوظ</h4>
+                    <p>تصدير نسخة من ملف Excel الأصلي المخزّن في التطبيق</p>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="main-container">
+    <!-- Professional Stats Cards -->
+    <div class="toolbar-card">
+        <div class="toolbar-stats-cards">
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-total" data-stat-filter="total">
+                <i class="fas fa-boxes toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">إجمالي الشحنات</span>
+                <strong id="totalRowsCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-visible active" data-stat-filter="visible">
+                <i class="fas fa-eye toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">الظاهر الآن</span>
+                <strong id="filteredRowsCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-with-rep" data-stat-filter="withRep">
+                <i class="fas fa-user-check toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">بمـندوب</span>
+                <strong id="withRepCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-without-rep" data-stat-filter="withoutRep">
+                <i class="fas fa-user-clock toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">بدون مندوب</span>
+                <strong id="withoutRepCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <div class="toolbar-stat-card card-amount">
+                <i class="fas fa-money-bill-wave toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">إجمالي المبلغ</span>
+                <strong id="totalAmountCount" class="toolbar-stat-value">0</strong>
+            </div>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-no-phone" data-stat-filter="withoutPhone">
+                <i class="fas fa-phone-slash toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">بدون هاتف</span>
+                <strong id="withoutPhoneCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-no-amount" data-stat-filter="withoutAmount">
+                <i class="fas fa-exclamation-triangle toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">بدون مبلغ</span>
+                <strong id="withoutAmountCount" class="toolbar-stat-value">0</strong>
+            </button>
+            <button type="button" class="toolbar-stat-card toolbar-stat-filter card-duplicate" data-stat-filter="duplicate" title="شحنات مكررة حسب رقم الهاتف">
+                <i class="fas fa-copy toolbar-stat-icon"></i>
+                <span class="toolbar-stat-label">مكرر</span>
+                <strong id="duplicateCount" class="toolbar-stat-value">0</strong>
+            </button>
+        </div>
+
+        <div class="d-flex justify-content-between align-items-center mt-3 gap-3" id="fileNameRow" style="display:none">
+            <div class="d-flex align-items-center gap-2 px-3 py-1 rounded-pill" style="font-size:0.85rem;font-weight:700;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex-shrink:1;min-width:0" id="fileNameBadge" onclick="clickFileNameBadge()">
+                <i class="fas fa-file-excel"></i>
+                <span id="fileNameDisplay"></span>
+                <span id="fileSourceBadge" class="badge rounded-pill" style="font-size:0.65rem;font-weight:800;padding:2px 8px;flex-shrink:0"></span>
+            </div>
+            <div class="d-flex align-items-center gap-2 px-3 py-1 rounded-pill flex-shrink-0" style="font-size:0.8rem;font-weight:600;background:rgba(100,116,139,0.15);color:var(--text-color);cursor:pointer" id="employeeBadge" onclick="promptEmployeeName()" title="اضغط لتغيير اسم الموظف">
+                <i class="fas fa-user"></i>
+                <span id="employeeNameDisplay">موظف</span>
+            </div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-2">
+            <button id="errorLogBtn" class="btn btn-light btn-sm rounded-circle shadow-sm position-relative" title="سجل الأخطاء البرمجية">
+                <i class="fas fa-bug"></i>
+                <span id="errorBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger border border-light" style="font-size:0.55rem;display:none">0</span>
+            </button>
+
+            <button id="qrActionBtn" class="btn btn-light btn-sm rounded-circle shadow-sm" type="button" title="QR"><i class="fas fa-qrcode"></i></button>
+            <button id="dashboardBtn" class="btn btn-light btn-sm rounded-circle shadow-sm" title="لوحة الإحصائيات"><i class="fas fa-chart-line"></i></button>
+            <button id="undoBtn" class="btn btn-light btn-sm rounded-circle shadow-sm" title="تراجع" disabled><i class="fas fa-undo"></i></button>
+            <button id="historyBtn" class="btn btn-light btn-sm rounded-circle shadow-sm" title="سجل العمليات"><i class="fas fa-history"></i></button>
+            <button id="clearFiltersBtn" class="btn btn-outline-danger btn-sm rounded-pill">مسح الفلاتر</button>
+            <button id="printLabelsBtn" class="btn btn-outline-dark btn-sm rounded-pill px-4">
+                <i class="fas fa-print me-1"></i> طباعة البوليصات
+            </button>
+            <button id="exportTemplateBtn" class="btn btn-outline-secondary btn-sm rounded-pill px-4">
+                <i class="fas fa-file-download me-1"></i> تحميل قالب فارغ
+            </button>
+            <button id="generateCodesBtn" class="btn btn-outline-warning btn-sm rounded-pill px-4">
+                <i class="fas fa-barcode me-1"></i> توليد أكواد فريدة
+            </button>
+        </div>
+    </div>
+
+    <div class="d-flex gap-3">
+        <aside class="sender-filter-sidebar">
+            <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
+                <div class="d-flex align-items-center gap-1">
+                    <strong class="small">الفلاتر الجانبية</strong>
+                    <button id="sidebarColsConfigBtn" class="btn btn-sm btn-light" style="width:22px;height:22px;padding:0;border-radius:6px;font-size:0.6rem;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--border)" title="تخصيص أعمدة الفلتر">
+                        <i class="fas fa-cog"></i>
+                    </button>
+                </div>
+                <span class="badge bg-primary rounded-pill" id="sidebarBadge">0</span>
+            </div>
+            <div class="p-2 border-bottom d-grid grid-template-columns-1fr-1fr gap-1">
+                <button id="loadExcelBtn" class="btn btn-primary btn-sm rounded-pill">فتح ملف</button>
+                <button id="exportSavedBtn" class="btn btn-success btn-sm rounded-pill" disabled>تصدير</button>
+                <button id="sidebarSaveBtn" class="btn btn-danger btn-sm rounded-pill" disabled>
+                    <i class="fas fa-save me-1"></i> حفظ <span id="sidebarSaveBadge" class="badge bg-light text-dark ms-1" style="display:none">0</span>
+                </button>
+                <input type="file" id="excelFileInput" accept=".xlsx,.xls,.xlsb,.xlsm" style="display:none">
+            </div>
+            <div class="p-2 border-bottom">
+                <button id="uploadShipmentsBtn" class="btn btn-outline-info btn-sm rounded-pill w-100" disabled>
+                    <i class="fas fa-cloud-upload-alt me-1"></i> رفع الشحنات
+                </button>
+            </div>
+            <div class="p-2 border-bottom d-flex gap-1 flex-wrap" id="sidebarTabsContainer"></div>
+            <div id="sidebarPanelsContainer"></div>
+        </aside>
+
+        <section class="shipments-table-wrapper">
+            <div class="table-top-controls">
+                <input type="text" id="globalSearchInput" class="form-control form-control-sm rounded-pill" placeholder="🔍 بحث سريع في البيانات...">
+                <div class="d-flex gap-1">
+                    <button id="columnsConfigBtn" class="btn btn-light btn-sm rounded-circle shadow-sm" title="تنسيق الأعمدة"><i class="fas fa-columns"></i></button>
+                    <button id="themeToggleBtn" class="btn btn-light btn-sm rounded-circle shadow-sm"><i class="fas fa-moon"></i></button>
+                </div>
+            </div>
+            <div class="table-scroll-viewport">
+                <table class="data-table" id="shipmentsDataTable">
+                    <thead id="tableHeader"></thead>
+                    <tbody id="tableBody"><tr><td colspan="15" class="text-center py-5">قم بتحميل الملف للبدء</td></tr></tbody>
+                </table>
+            </div>
+            <div class="p-2 border-top d-flex justify-content-between align-items-center">
+                <div id="paginationMeta" class="text-muted small">الصفحة 0 من 0</div>
+                <div id="pagination" class="d-flex gap-1"></div>
+            </div>
+        </section>
+    </div>
+
+    <!-- Bulk Action Bar -->
+    <div id="bulkActionBar" class="toolbar-card position-fixed bottom-0 start-50 translate-middle-x mb-4 shadow-lg" style="display: none; z-index: 2100; width: min(900px, 95%); min-height: auto; padding: 0.75rem 1.25rem; border: 1px solid var(--primary); border-radius: 1.5rem;">
+        <div class="d-flex align-items-center justify-content-between gap-2 flex-wrap">
+            <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center bg-primary text-white rounded-pill px-3 py-2 shadow-sm">
+                    <i class="fas fa-check-double me-2"></i>
+                    <span class="fw-bold" id="selectedCountBadge">0</span>
+                </div>
+                <div class="d-none d-md-block">
+                    <span class="fw-bold small text-muted">شحنات معلقة</span>
+                    <button class="btn btn-outline-primary btn-sm rounded-pill mx-2" onclick="copySelectedRows()">نسخ المحدد</button>
+                    <button class="btn btn-link btn-sm text-primary p-0 text-decoration-none fw-bold" onclick="clearSelection()">إلغاء الكل</button>
+                </div>
+            </div>
+            
+            <div class="d-flex gap-2 align-items-center flex-grow-1 justify-content-end">
+                <!-- Assign Representative Group -->
+                <div class="input-group input-group-sm rounded-pill overflow-hidden shadow-sm" style="max-width: 280px;">
+                    <span class="input-group-text border-0 bg-light"><i class="fas fa-user-tag text-primary"></i></span>
+                    <input type="text" id="bulkRepInput" class="form-control border-0 bg-light" placeholder="تعيين لمندوب..." list="bulkRepsList">
+                    <datalist id="bulkRepsList"></datalist>
+                    <button class="btn btn-primary px-3 border-0" onclick="bulkAssignRep()">
+                        تأكيد
+                    </button>
+                </div>
+
+                <!-- Update Status Group -->
+                <div class="bulk-status-wrap">
+                    <button class="btn btn-sm btn-outline-primary rounded-pill px-3 dropdown-toggle shadow-sm d-flex align-items-center gap-2" type="button" onclick="toggleBulkStatusMenu(event)">
+                        <i class="fas fa-sync-alt"></i>
+                        <span>تحديث الحالة</span>
+                    </button>
+                    <ul class="dropdown-menu dropdown-menu-end shadow border-0 rounded-4" id="bulkStatusMenu" style="max-height: 250px; overflow-y: auto;">
+                        <!-- Populated dynamically -->
+                    </ul>
+                </div>
+
+                <!-- Delete Logic -->
+                <button class="btn btn-sm btn-danger rounded-circle shadow-sm" onclick="bulkDeleteSelected()" title="حذف الشحنات المختارة" style="width: 32px; height: 32px; padding: 0;">
+                    <i class="fas fa-trash-alt"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // Error Logger (must be first to catch all errors)
+    const errorLog = [];
+    const MAX_ERROR_LOG = 200;
+    function addErrorLog(msg, source, lineno, colno, err) {
+        const entry = {
+            id: Date.now() + '_' + Math.random().toString(36).slice(2, 6),
+            message: typeof msg === 'string' ? msg : (msg ? msg.toString() : 'unknown'),
+            source: source || '',
+            line: lineno || 0,
+            col: colno || 0,
+            stack: err && err.stack ? err.stack : '',
+            time: new Date().toLocaleString('ar-EG')
+        };
+        errorLog.unshift(entry);
+        if (errorLog.length > MAX_ERROR_LOG) errorLog.length = MAX_ERROR_LOG;
+        try { updateErrorBadge(); renderErrorLog(); } catch(e) { /* ignore recursive errors */ }
+    }
+    window.onerror = function(msg, source, lineno, colno, error) { addErrorLog(msg, source, lineno, colno, error); return false; };
+    window.addEventListener('unhandledrejection', function(e) {
+        addErrorLog(e.reason ? (e.reason.message || e.reason) : 'Unhandled Promise rejection', '', 0, 0, e.reason);
+    });
+    var origConsoleError = console.error;
+    console.error = function() {
+        var args = Array.prototype.slice.call(arguments);
+        addErrorLog(args.map(function(a) { return typeof a === 'string' ? a : (a && a.message ? a.message : JSON.stringify(a)); }).join(' '), '', 0, 0, args.find(function(a) { return a instanceof Error; }));
+        origConsoleError.apply(console, args);
+    };
+
+    // State
+    let fullDataset = []; let currentDisplayData = []; let modifiedCells = new Map();
+    let actionHistory = [];
+    let selectedIds = new Set();
+    let activeSenderFilter = []; let activeRepFilter = []; let activeStatusFilter = [];
+    let activeStatsFilter = "visible"; let activeColumnFilters = {};
+    let sidebarTab = "sender"; let currentTablePage = 1; const ROWS_PER_PAGE = 500;
+    let quickAssignRepName = "";
+    let errorCache = new Map();
+    let qrSessionRows = [];
+    let qrSessionCodes = new Set();
+    let qrSessionInfo = null;
+    let qrSessionPollTimer = 0;
+    let qrSessionSyncPromise = null;
+    let qrAssignedRepName = '';
+    let _headerBuilt = false;
+    function debounce(fn, ms) { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; }
+    function saveExcelToDesktop(wb, baseName) {
+        if (window.desktopAPI && window.desktopAPI.saveExcelToDesktop) {
+            var now = new Date();
+            var ds = now.getFullYear() + '-' + String(now.getMonth()+1).padStart(2,'0') + '-' + String(now.getDate()).padStart(2,'0');
+            var ts = String(now.getHours()).padStart(2,'0') + String(now.getMinutes()).padStart(2,'0') + String(now.getSeconds()).padStart(2,'0');
+            var buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            return window.desktopAPI.saveExcelToDesktop({ name: baseName + '_' + ds + '_' + ts + '.xlsx', data: buf });
+        }
+        XLSX.writeFile(wb, baseName + '.xlsx');
+        return Promise.resolve({ success: true });
+    }
+    function updateQuickAssign(val) {
+        quickAssignRepName = val;
+        document.querySelectorAll('.row-assign-trigger').forEach(b => { b.textContent = val || '...'; b.classList.toggle('is-empty', !val); });
+    }
+    
+    // Column Config State
+    const allPossibleColumns = ["sender", "customerName", "phone", "altPhone", "address", "amount", "status", "ملاحظات", "code", "rep", "التاريخ", "حالة المرتجع", "مكتب", "عمولة المندوب", "اليومية", "السعر بعد التعديل", "اسم الموظف", "حدث", "zone", "product"];
+    let colOrder = JSON.parse(localStorage.getItem('columns_order')) || [...allPossibleColumns];
+    let savedVisible = JSON.parse(localStorage.getItem('columns_visible'));
+    let _fileColumnSet = new Set(JSON.parse(localStorage.getItem('file_columns') || '[]'));
+    let _extraColumns = JSON.parse(localStorage.getItem('extra_columns') || '[]');
+    let sidebarExtraCols = JSON.parse(localStorage.getItem('sidebar_extra_cols') || '[]');
+    
+    // Migration: ensure new columns are added to existing saved orders and visibility
+    allPossibleColumns.forEach(c => { 
+        if(!colOrder.includes(c)) {
+            if(c === 'address') {
+                const idx = colOrder.indexOf('customerName');
+                if(idx !== -1) colOrder.splice(idx + 1, 0, 'address');
+                else colOrder.push('address');
+            } else {
+                colOrder.push(c);
+            }
+        }
+    });
+    
+    const defaultVisibleCols = ["sender", "customerName", "phone", "altPhone", "amount", "status", "ملاحظات", "code", "rep"];
+    let visibleCols = new Set(savedVisible || defaultVisibleCols);
+    if(savedVisible && !savedVisible.includes('address')) {
+        visibleCols.add('address');
+        localStorage.setItem('columns_visible', JSON.stringify(Array.from(visibleCols)));
+    }
+    
+    let colWidths = JSON.parse(localStorage.getItem('columns_widths')) || {};
+    
+    const colDisplay = { sender: "الراسل", customerName: "اسم العميل", phone: "الهاتف", altPhone: "هاتف بديل", address: "العنوان", amount: "المبلغ", status: "الحالة", "ملاحظات": "ملاحظات", code: "كود الشحنة", rep: "المندوب", "التاريخ": "التاريخ", "حالة المرتجع": "حالة المرتجع", "مكتب": "مكتب", "عمولة المندوب": "عمولة المندوب", "اليومية": "اليومية", "السعر بعد التعديل": "السعر بعد التعديل", "اسم الموظف": "اسم الموظف", "حدث": "حدث", zone: "الزون", product: "المنتج" };
+
+    const colMap = { 
+        "اسم العميل": "customerName", 
+        "الاسم": "customerName",
+        "العنوان": "address", 
+        "عنوان": "address",
+        "عنوان العميل": "address",
+        "الزون": "zone", 
+        "المنطقة": "zone",
+        "المنتج": "product", 
+        "الهاتف": "phone", 
+        "تليفون": "phone",
+        "رقم الهاتف": "phone",
+        "هاتف بديل": "altPhone", 
+        "المبلغ": "amount", 
+        "السعر": "amount",
+        "الراسل": "sender", 
+        "كود الشحنة": "code", 
+        "الكود": "code",
+        "المندوب": "rep", 
+        "الحالة": "status",
+        "ملاحظات": "ملاحظات",
+        "التاريخ": "التاريخ",
+        "Date": "التاريخ",
+        "حالة المرتجع": "حالة المرتجع",
+        "مكتب": "مكتب",
+        "السعر بعد التعديل": "السعر بعد التعديل"
+    };
+
+    let _cancelRequested = false;
+    function checkCancel() { if (_cancelRequested) throw new Error('CANCEL'); }
+    function showLoading(s, msg, pct, cancelFn) { 
+        const el = document.getElementById('globalLoading');
+        if (!el) return;
+        el.style.display = s ? 'flex' : 'none';
+        if (msg !== undefined) document.getElementById('loadingText').innerText = msg;
+        const fill = document.getElementById('loadingBarFill');
+        if (pct !== undefined && pct >= 0) {
+            fill.style.width = Math.min(pct,100) + '%';
+        } else if (!s) {
+            fill.style.width = '0';
+        }
+        const cancelBtn = document.getElementById('loadingCancelBtn');
+        if (s && typeof cancelFn === 'function') {
+            _cancelRequested = false;
+            cancelBtn.style.display = 'inline-block'; cancelBtn.disabled = false; cancelBtn.innerText = 'إلغاء';
+            const newBtn = cancelBtn.cloneNode(true);
+            cancelBtn.parentNode.replaceChild(newBtn, cancelBtn);
+            newBtn.addEventListener('click', function() {
+                _cancelRequested = true; this.disabled = true; this.innerText = 'جاري الإلغاء...';
+                document.getElementById('loadingText').innerText = 'جاري إلغاء العملية...';
+                cancelFn();
+            });
+        } else {
+            cancelBtn.style.display = 'none'; _cancelRequested = false;
+        }
+    }
+    function normalize(s) { return (s || "").toString().trim(); }
+    function escapeHtml(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+    function normalizePhone(s) {
+        let p = normalize(s).replace(/[\s\-\(\)]/g, '');
+        if (!p) return p;
+        if (p.startsWith('+')) p = p.slice(1);
+        if (p.startsWith('00')) p = p.slice(2);
+        if (p.startsWith('2') && p.length > 1) p = p.slice(1);
+        if (!p.startsWith('0')) p = '0' + p;
+        return p;
+    }
+
+    function getRowErrors(r) {
+        const cached = errorCache.get(r._id);
+        if (cached) return cached;
+        const errors = {};
+        if (normalize(r.amount) === "") errors.amount = "المبلغ فارغ";
+        if (normalize(r.phone) === "" && normalize(r.altPhone) === "") errors.phone = "رقم الهاتف و البديل فارغين";
+        errorCache.set(r._id, errors);
+        return errors;
+    }
+
+    function buildCaches() {
+        const digCounts = new Map();
+        const codeCounts = new Map();
+        fullDataset.forEach(r => {
+            [phoneDigits(r.phone), phoneDigits(r.altPhone)].forEach(d => {
+                if (d.length > 0) digCounts.set(d, (digCounts.get(d) || 0) + 1);
+            });
+            const c = normalize(r.code);
+            if (c) codeCounts.set(c, (codeCounts.get(c) || 0) + 1);
+        });
+        window._dupPhones = new Set();
+        digCounts.forEach((c, d) => { if (c > 1) window._dupPhones.add(d); });
+        window._dupCodes = new Set();
+        codeCounts.forEach((c, code) => { if (c > 1) window._dupCodes.add(code); });
+        fullDataset.forEach(r => {
+            r._dup = [phoneDigits(r.phone), phoneDigits(r.altPhone)].filter(d => d.length > 0 && window._dupPhones.has(d)).length > 0;
+        });
+    }
+
+    function phoneDigits(v) {
+        return (v || '').replace(/\D/g, '');
+    }
+
+    function isDuplicate(row) {
+        return row._dup || false;
+    }
+
+    let _currentFileName = '';
+
+    function promptEmployeeName() {
+        Swal.fire({
+            title: 'اسم الموظف',
+            input: 'text',
+            inputValue: localStorage.getItem('employee_name') || '',
+            showCancelButton: true,
+            confirmButtonText: 'حفظ',
+            cancelButtonText: 'إلغاء',
+            reverseButtons: true
+        }).then(r => {
+            if (r.isConfirmed && r.value) {
+                localStorage.setItem('employee_name', r.value);
+                document.getElementById('employeeNameDisplay').innerText = r.value;
+            }
+        });
+    }
+
+    async function ensureEmployeeName() {
+        const name = localStorage.getItem('employee_name');
+        if (name) return name;
+        const result = await Swal.fire({
+            title: 'اسم الموظف مطلوب',
+            text: 'يرجى إدخال اسمك قبل إجراء أي تعديل',
+            input: 'text',
+            inputPlaceholder: 'اسم الموظف',
+            showCancelButton: true,
+            confirmButtonText: 'حفظ',
+            cancelButtonText: 'إلغاء',
+            reverseButtons: true,
+            inputValidator: v => v ? null : 'يجب إدخال الاسم'
+        });
+        if (result.isConfirmed && result.value) {
+            localStorage.setItem('employee_name', result.value);
+            document.getElementById('employeeNameDisplay').innerText = result.value;
+            return result.value;
+        }
+        return null;
+    }
+
+    function showFileName(name, source) {
+        _currentFileName = name;
+        const row = document.getElementById('fileNameRow');
+        const span = document.getElementById('fileNameDisplay');
+        const badge = document.getElementById('fileSourceBadge');
+        const container = document.getElementById('fileNameBadge');
+        if (name) {
+            row.style.display = 'flex';
+            span.innerText = name;
+            container.style.cursor = '';
+            if (source === 'local') {
+                badge.innerText = 'مباشر';
+                container.style.background = '#10b981';
+                container.style.color = '#fff';
+                badge.style.background = 'rgba(255,255,255,0.25)';
+                badge.style.color = '#fff';
+            } else {
+                badge.innerText = 'مخبأ';
+                container.style.background = 'var(--primary)';
+                container.style.color = '#fff';
+                badge.style.background = 'rgba(255,255,255,0.25)';
+                badge.style.color = '#fff';
+            }
+        } else {
+            row.style.display = 'none';
+            span.innerText = '';
+            badge.innerText = '';
+        }
+    }
+
+    async function handleFile(file) {
+        try {
+            showLoading(true, 'جاري فتح الملف...', 10, () => { _cancelRequested = true; });
+            const reader = new FileReader();
+            reader.onload = async (e) => {
+                try {
+                    if (_cancelRequested) { showLoading(false); return; }
+                    showLoading(true, 'جاري قراءة البيانات...', 40);
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    if (!workbook.SheetNames.includes("Sheet1")) { showLoading(false); Swal.fire('تحذير', 'لا يوجد ورقة عمل باسم Sheet1', 'warning'); return; }
+                    if (_cancelRequested) { showLoading(false); return; }
+                    showLoading(true, 'جاري تجهيز الأعمدة...', 60);
+                    const sheet = workbook.Sheets["Sheet1"];
+                    const json = XLSX.utils.sheet_to_json(sheet, {defval: ""});
+                    const allHeaders = json.length ? Object.keys(json[0]) : [];
+                    _fileColumnSet = new Set(allHeaders);
+                    _extraColumns = allHeaders.filter(h => !allPossibleColumns.includes(h) && !colMap[h]);
+                    localStorage.setItem('file_columns', JSON.stringify(allHeaders));
+                    localStorage.setItem('extra_columns', JSON.stringify(_extraColumns));
+                    _extraColumns.forEach(c => { if (!colOrder.includes(c)) { colOrder.push(c); } });
+                    localStorage.setItem('columns_order', JSON.stringify(colOrder));
+                    const knownCols = [...allPossibleColumns, ..._extraColumns];
+                    if (_cancelRequested) { showLoading(false); return; }
+                    showLoading(true, 'جاري معالجة ' + json.length + ' شحنة...', 80);
+                    fullDataset = json.map((l, i) => {
+                        const r = { _id: i };
+                        knownCols.forEach(c => r[c] = l[Object.keys(colMap).find(k => colMap[k] === c)] || l[c] || "");
+                        r.phone = normalizePhone(r.phone);
+                        r.altPhone = normalizePhone(r.altPhone);
+                        r._search = `${r.customerName} ${r.address} ${r.phone} ${r.code} ${r.sender}`.toLowerCase();
+                        return r;
+                    });
+                    buildCaches();
+                    showFileName(file.name, 'local');
+                    modifiedCells.clear(); clearHistory(); clearLocalStorage(); errorCache.clear(); updateChangesBadge(); applyFilters(); rebuildSidebarTabs(); refreshSidebar();
+                    showLoading(false);
+                } catch(e) {
+                    if (_cancelRequested) { showLoading(false); return; }
+                    throw e;
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        } catch(e) {
+            if (e.message === 'CANCEL') { showLoading(false); return; }
+            throw e;
+        }
+    }
+
+    function applyFilters() {
+        const search = document.getElementById('globalSearchInput').value.toLowerCase();
+        let filtered = fullDataset.filter(r => {
+            if(search && !r._search.includes(search)) return false;
+            if(activeSenderFilter.length > 0 && !activeSenderFilter.includes(r.sender)) return false;
+            if(activeRepFilter.length > 0 && !activeRepFilter.includes(r.rep)) return false;
+            if(activeStatusFilter.length > 0 && !activeStatusFilter.includes(r.status)) return false;
+            
+            if(activeStatsFilter === 'withRep') return !!r.rep;
+            if(activeStatsFilter === 'withoutRep') return !r.rep;
+            if(activeStatsFilter === 'withoutPhone') return !r.phone && !r.altPhone;
+            if(activeStatsFilter === 'withoutAmount') return !r.amount || isNaN(parseFloat(r.amount));
+            if(activeStatsFilter === 'duplicate') return r._dup;
+            return true;
+        });
+        Object.entries(activeColumnFilters).forEach(([c, v]) => { 
+            if(!v || !v.length) return;
+            if (Array.isArray(v)) {
+                filtered = filtered.filter(r => v.includes(normalize(r[c])));
+            } else {
+                const vl = v.toLowerCase();
+                filtered = filtered.filter(r => normalize(r[c]).toLowerCase().includes(vl));
+            }
+        });
+        currentDisplayData = filtered;
+        currentTablePage = 1;
+
+        // Clear selection if filtered out or just update bar?
+        // Let's clear selection for simplicity when major filters change to avoid mistakes
+        // clearSelection(); // Uncomment if you want to clear on filter
+
+        updateStats(); renderTable();
+        updateClearFiltersBtnState();
+    }
+
+    function updateClearFiltersBtnState() {
+        const btn = document.getElementById('clearFiltersBtn');
+        const hasFilters = 
+            document.getElementById('globalSearchInput').value !== "" ||
+            activeSenderFilter.length > 0 ||
+            activeRepFilter.length > 0 ||
+            activeStatusFilter.length > 0 ||
+            activeStatsFilter !== "visible" ||
+            Object.keys(activeColumnFilters).length > 0;
+        
+        btn.classList.toggle('btn-flash-error', hasFilters);
+        btn.classList.toggle('btn-outline-danger', !hasFilters);
+        btn.classList.toggle('btn-danger', hasFilters);
+    }
+
+    function updateStats() {
+        document.getElementById('filteredRowsCount').innerText = currentDisplayData.length;
+        let withRep = 0, withoutRep = 0, totalAmount = 0, withoutPhone = 0, withoutAmount = 0, dupCount = 0;
+        for (const r of fullDataset) {
+            if (r.rep) withRep++; else withoutRep++;
+            totalAmount += parseFloat(r.amount) || 0;
+            if (!r.phone && !r.altPhone) withoutPhone++;
+            if (!r.amount || isNaN(parseFloat(r.amount))) withoutAmount++;
+            if (r._dup) dupCount++;
+        }
+        document.getElementById('totalRowsCount').innerText = fullDataset.length;
+        document.getElementById('withRepCount').innerText = withRep;
+        document.getElementById('withoutRepCount').innerText = withoutRep;
+        document.getElementById('totalAmountCount').innerText = totalAmount.toLocaleString();
+        document.getElementById('withoutPhoneCount').innerText = withoutPhone;
+        document.getElementById('withoutAmountCount').innerText = withoutAmount;
+        document.getElementById('duplicateCount').innerText = dupCount;
+        document.querySelectorAll('.toolbar-stat-filter').forEach(b => b.classList.toggle('active', b.dataset.statFilter === activeStatsFilter));
+    }
+
+    function buildTableHeader() {
+        const thead = document.getElementById('tableHeader');
+        const isAllSelected = currentDisplayData.length > 0 && currentDisplayData.every(r => selectedIds.has(r._id.toString()));
+        let html = `<tr><th class="col-select"><input type="checkbox" id="selectAllCheckbox" ${isAllSelected?'checked':''} onclick="toggleSelectAll(this.checked)"></th>
+                    <th class="col-assign"><input type="text" id="quickAssignInput" class="quick-assign-input" placeholder="مندوب..." oninput="updateQuickAssign(this.value)"></th>`;
+        html += colOrder.filter(c => visibleCols.has(c)).map(c => {
+            const v = activeColumnFilters[c] || "";
+            const hasFilter = Array.isArray(v) ? v.length > 0 : !!v;
+            const label = Array.isArray(v) && v.length ? v.length + ' مختار' : v;
+            const w = colWidths[c] ? `style="width:${colWidths[c]}px"` : '';
+            return `<th class="col-std${hasFilter?' col-filtered':''}" data-col="${c}" ${w}>
+                <button class="column-filter-trigger ${hasFilter?'active':''}" onclick="toggleColFilter('${c}', this)">
+                    <span>${colDisplay[c] || c}</span>${hasFilter?`<span class="column-filter-trigger-value">${label}</span>`:''}
+                </button>
+                <div class="resizer" onmousedown="initResize(event, '${c}')"></div>
+            </th>`;
+        }).join('');
+        thead.innerHTML = html + "</tr>";
+    }
+
+    function renderTable() {
+        if (!_headerBuilt) { buildTableHeader(); _headerBuilt = true; }
+        const tbody = document.getElementById('tableBody');
+        const start = (currentTablePage - 1) * ROWS_PER_PAGE;
+        const page = currentDisplayData.slice(start, start + ROWS_PER_PAGE);
+        
+        const duplicateCodes = window._dupCodes || new Set();
+        const duplicatePhones = window._dupPhones || new Set();
+
+        const modifiedRowIds = new Set();
+         modifiedCells.forEach((v, k) => modifiedRowIds.add(String(k).split('_')[0]));
+
+        tbody.innerHTML = page.map(r => {
+            const isRowModified = modifiedRowIds.has(r._id.toString());
+            const isSelected = selectedIds.has(r._id.toString());
+            const errors = getRowErrors(r);
+            const hasAnyError = Object.keys(errors).length > 0;
+            const rowClass = [isRowModified ? 'changed-row' : '', hasAnyError ? 'error-row' : '', isSelected ? 'bg-primary-subtle' : ''].join(' ').trim();
+            return `
+                <tr data-id="${r._id}" class="${rowClass}">
+                    <td><input type="checkbox" class="row-checkbox" ${isSelected?'checked':''} onclick="toggleSelectRow('${r._id}', this.checked)"></td>
+                    <td><button class="row-assign-trigger ${quickAssignRepName?'':'is-empty'}" onclick="assignRep(${r._id})">${quickAssignRepName || '...'}</button></td>
+                    ${colOrder.filter(c => visibleCols.has(c)).map(c => {
+                        const isModified = modifiedCells.has(r._id+'_'+c);
+                        const hasError = !!errors[c];
+                        const isDuplicateCode = (c === 'code' && duplicateCodes.has(normalize(r.code)));
+                        const isDupPhone = (c === 'phone' || c === 'altPhone') && duplicatePhones.has(phoneDigits(r[c]));
+                        
+                        const cls = [
+                            isModified ? 'changed-cell' : '', 
+                            hasError ? 'error-cell' : '',
+                            isDuplicateCode ? 'duplicate-cell' : '',
+                            isDupPhone ? 'duplicate-phone-cell' : ''
+                        ].join(' ').trim();
+                        
+                        const title = hasError ? `title="${errors[c]}"` : (isDuplicateCode ? 'title="كود مكرر"' : (isDupPhone ? 'title="رقم مكرر"' : ''));
+                        return `<td class="${cls}" ${title} contenteditable="true" onblur="editCell(${r._id},'${c}',this.innerText)">${r[c]}</td>`;
+                    }).join('')}
+                </tr>
+            `;
+        }).join('');
+        
+        updatePagination();
+    }
+
+    function updatePagination() {
+        const meta = document.getElementById('paginationMeta');
+        const container = document.getElementById('pagination');
+        if (!meta || !container) return;
+        
+        const totalPages = Math.ceil(currentDisplayData.length / ROWS_PER_PAGE);
+        
+        if (totalPages <= 1) {
+            meta.innerText = currentDisplayData.length > 0 ? `الكل: ${currentDisplayData.length}` : 'لا يوجد بيانات';
+            container.innerHTML = "";
+            return;
+        }
+
+        meta.innerText = `الصفحة ${currentTablePage} من ${totalPages} (إجمالي ${currentDisplayData.length})`;
+        
+        let html = "";
+        
+        const maxVisible = 5;
+        let startPage = Math.max(1, currentTablePage - 2);
+        let endPage = Math.min(totalPages, startPage + maxVisible - 1);
+        
+        if (endPage - startPage < maxVisible - 1) {
+            startPage = Math.max(1, endPage - maxVisible + 1);
+        }
+
+        html += `<button class="btn btn-sm btn-outline-secondary px-2" ${currentTablePage === 1 ? 'disabled' : ''} onclick="gotoPage(${currentTablePage - 1})"><i class="fas fa-chevron-right"></i></button>`;
+
+        if (startPage > 1) {
+            html += `<button class="btn btn-sm btn-outline-secondary" onclick="gotoPage(1)">1</button>`;
+            if (startPage > 2) html += `<span class="align-self-center mx-1 text-muted small">...</span>`;
+        }
+
+        for (let i = startPage; i <= endPage; i++) {
+            html += `<button class="btn btn-sm ${i === currentTablePage ? 'btn-primary' : 'btn-outline-secondary'} px-3" onclick="gotoPage(${i})">${i}</button>`;
+        }
+
+        if (endPage < totalPages) {
+            if (endPage < totalPages - 1) html += `<span class="align-self-center mx-1 text-muted small">...</span>`;
+            html += `<button class="btn btn-sm btn-outline-secondary" onclick="gotoPage(${totalPages})">${totalPages}</button>`;
+        }
+
+        html += `<button class="btn btn-sm btn-outline-secondary px-2" ${currentTablePage === totalPages ? 'disabled' : ''} onclick="gotoPage(${currentTablePage + 1})"><i class="fas fa-chevron-left"></i></button>`;
+
+        container.innerHTML = html;
+    }
+
+    window.gotoPage = (p) => {
+        currentTablePage = p;
+        renderTable();
+        const viewport = document.querySelector('.table-scroll-viewport');
+        if(viewport) viewport.scrollTop = 0;
+    };
+
+    async function assignRep(id) { 
+        if (!await ensureEmployeeName()) return;
+        if(!quickAssignRepName) return; 
+        const r = fullDataset.find(x => x._id === id); 
+        if(!r) return;
+        const oldVal = r.rep;
+        if(normalize(oldVal) !== normalize(quickAssignRepName)) {
+            if (normalize(oldVal) && !confirm(`المندوب الحالي: "${oldVal}"\nهل تريد استبداله بـ "${quickAssignRepName}"؟`)) return;
+            actionHistory.push({ id, col: 'rep', oldVal, newVal: quickAssignRepName, time: new Date() });
+            if (!modifiedCells.has(id+'_rep')) {
+                modifiedCells.set(id+'_rep', oldVal);
+            } else {
+                if (normalize(quickAssignRepName) === normalize(modifiedCells.get(id+'_rep'))) {
+                    modifiedCells.delete(id+'_rep');
+                }
+            }
+            r.rep = quickAssignRepName; 
+            updateChangesBadge(); 
+            applyFilters(); 
+            refreshSidebar();
+        }
+    }
+
+    async function editCell(id, c, v) { 
+        if (!await ensureEmployeeName()) return;
+        const r = fullDataset.find(x => x._id == id); 
+        if(!r) return;
+        errorCache.delete(id);
+        const oldVal = r[c];
+        if(normalize(oldVal) !== normalize(v)) { 
+            actionHistory.push({ id, col: c, oldVal, newVal: v, time: new Date() });
+            
+            if (!modifiedCells.has(id+'_'+c)) {
+                modifiedCells.set(id+'_'+c, oldVal);
+            } else {
+                if (normalize(v) === normalize(modifiedCells.get(id+'_'+c))) {
+                    modifiedCells.delete(id+'_'+c);
+                }
+            }
+
+            r[c] = v; 
+            if(c === 'customerName' || c === 'address' || c === 'phone' || c === 'code' || c === 'sender') {
+                r._search = `${r.customerName} ${r.address} ${r.phone} ${r.code} ${r.sender}`.toLowerCase();
+            }
+            if (c !== 'حدث' && c !== 'اسم الموظف') {
+                r['حدث'] = 'تعديل ' + (colDisplay[c] || c);
+                if (!modifiedCells.has(id+'_حدث')) modifiedCells.set(id+'_حدث', r['حدث']);
+            }
+            updateChangesBadge(); 
+            if(c === 'phone' || c === 'altPhone' || c === 'amount' || c === 'rep' || c === 'status') {
+                applyFilters(); // refresh counts and sidebar counts
+                if(c === 'rep' || c === 'status' || c === 'sender') refreshSidebar();
+            } else {
+                renderTable();
+            }
+        }
+    }
+
+    function updateChangesBadge() { 
+        const undoBtn = document.getElementById('undoBtn');
+        const hasChanges = modifiedCells.size > 0;
+        undoBtn.disabled = actionHistory.length === 0;
+        const btn = document.getElementById('sidebarSaveBtn');
+        const badge = document.getElementById('sidebarSaveBadge');
+        btn.disabled = !hasChanges;
+        badge.innerText = modifiedCells.size;
+        badge.style.display = hasChanges ? 'inline-block' : 'none';
+        btn.classList.toggle('btn-flash-save', hasChanges);
+        btn.classList.toggle('btn-save-modified', hasChanges);
+        btn.classList.toggle('btn-danger', !hasChanges);
+        saveToLocalStorage();
+        document.getElementById('uploadShipmentsBtn').disabled = !fullDataset.length;
+    }
+
+    function toggleColFilter(c, b) {
+        const popup = document.createElement('div'); popup.className = 'column-filter-popup';
+        popup.onclick = e => e.stopPropagation();
+        const selected = new Set(activeColumnFilters[c] || []);
+        const opts = Array.from(new Set(currentDisplayData.map(r => normalize(r[c])))).filter(Boolean).sort();
+        function esc(v) { return v.replace(/\\/g,'\\\\').replace(/'/g,"\\'").replace(/"/g,'&quot;'); }
+        function renderOpts(term) {
+            return opts.filter(o => !term || o.toLowerCase().includes(term)).slice(0, 80).map(o =>
+                `<label class="column-filter-option d-flex align-items-center gap-2 px-2 py-1" style="cursor:pointer;border-bottom:1px solid var(--border)">
+                    <input type="checkbox" value="${esc(o)}" ${selected.has(o)?'checked':''} onchange="toggleColFilterVal('${c}',this)">
+                    <span>${o}</span>
+                </label>`
+            ).join('');
+        }
+        const currentFilter = activeColumnFilters[c];
+        const searchVal = typeof currentFilter === 'string' ? currentFilter : '';
+        popup.innerHTML = `
+            <div class="d-flex gap-1 p-1 border-bottom">
+                <button class="btn btn-sm btn-outline-danger flex-grow-1" onclick="setColFilter('${c}',[]); this.closest('.column-filter-popup').remove()">مسح</button>
+                <button class="btn btn-sm btn-secondary flex-grow-1" onclick="this.closest('.column-filter-popup').remove()">إغلاق</button>
+            </div>
+            <div class="p-2"><input type="text" id="colFilterInput" class="form-control form-control-sm" style="font-size:0.75rem" placeholder="بحث..." value="${esc(searchVal)}"></div>
+            <div style="max-height:200px;overflow-y:auto" id="colOptsList">${renderOpts(searchVal)}</div>`;
+        document.body.appendChild(popup);
+        const rect = b.getBoundingClientRect();
+        popup.style.top = (rect.bottom + window.scrollY) + "px";
+        popup.style.left = rect.left + "px";
+        setTimeout(() => {
+            const inp = document.getElementById('colFilterInput');
+            if (inp) {
+                inp.focus();
+                inp.oninput = function() {
+                    document.getElementById('colOptsList').innerHTML = renderOpts(this.value);
+                    if (this.value) {
+                        activeColumnFilters[c] = this.value;
+                    } else {
+                        const checked = document.querySelectorAll('#colOptsList input:checked');
+                        if (checked.length === 0) delete activeColumnFilters[c];
+                        else activeColumnFilters[c] = Array.from(checked).map(cb => cb.value);
+                    }
+                    applyFilters();
+                    updateHeaderFilterState(c);
+                };
+            }
+            window.addEventListener('click', () => popup.remove(), { once: true });
+        }, 0);
+    }
+    function toggleColFilterVal(c, cb) {
+        const arr = activeColumnFilters[c] || [];
+        if (cb.checked) {
+            if (!arr.includes(cb.value)) arr.push(cb.value);
+        } else {
+            const idx = arr.indexOf(cb.value);
+            if (idx > -1) arr.splice(idx, 1);
+        }
+        if (arr.length) activeColumnFilters[c] = arr; else delete activeColumnFilters[c];
+        applyFilters();
+        updateHeaderFilterState(c);
+    }
+    function setColFilter(c, v) { if(v && v.length) activeColumnFilters[c]=v; else delete activeColumnFilters[c]; applyFilters(); updateHeaderFilterState(c); }
+    function updateHeaderFilterState(c) {
+        const th = document.querySelector(`.data-table th[data-col="${c}"]`);
+        if (!th) return;
+        const btn = th.querySelector('.column-filter-trigger');
+        if (!btn) return;
+        const v = activeColumnFilters[c] || "";
+        const hasFilter = Array.isArray(v) ? v.length > 0 : !!v;
+        const label = Array.isArray(v) && v.length ? v.length + ' مختار' : (typeof v === 'string' && v ? v : '');
+        th.classList.toggle('col-filtered', hasFilter);
+        btn.classList.toggle('active', hasFilter);
+        btn.innerHTML = `<span>${colDisplay[c] || c}</span>${hasFilter ? `<span class="column-filter-trigger-value">${label}</span>` : ''}`;
+    }
+
+    function refreshSidebar() {
+        const searchInput = document.getElementById(sidebarTab + 'Search');
+        const term = searchInput ? searchInput.value.toLowerCase() : "";
+        
+        const map = new Map(); 
+        fullDataset.forEach(r => {
+            const val = normalize(r[sidebarTab]);
+            if (!term || val.toLowerCase().includes(term)) {
+                map.set(val, (map.get(val) || 0) + 1);
+            }
+        });
+        
+        const list = document.getElementById(sidebarTab + 'List');
+        if(!list) return;
+
+        let activeVal;
+        if (sidebarTab === "sender") activeVal = activeSenderFilter;
+        else if (sidebarTab === "rep") activeVal = activeRepFilter;
+        else if (sidebarTab === "status") activeVal = activeStatusFilter;
+        else activeVal = activeColumnFilters[sidebarTab] || [];
+
+        const isAllActive = activeVal.length === 0;
+        let h = `<button class="sender-filter-item ${isAllActive?'active':''}" onclick="setSidebarFilter('', event)">الكل</button>`;
+        Array.from(map.entries()).sort((a,b) => a[0].localeCompare(b[0], 'ar')).forEach(([n, c]) => {
+            const isActive = activeVal.includes(n);
+            h += `<button class="sender-filter-item ${isActive?'active':''}" onclick="setSidebarFilter('${n.replace(/'/g, "\\'")}', event)">
+                <span>${n || '...'}</span><span class="badge bg-light text-dark">${c}</span>
+            </button>`;
+        });
+        list.innerHTML = h; 
+        document.getElementById('sidebarBadge').innerText = map.size;
+    }
+
+    function setSidebarFilter(v, e) {
+        const multi = e && (e.ctrlKey || e.metaKey);
+
+        if(sidebarTab === "sender") {
+            if (multi) {
+                const idx = activeSenderFilter.indexOf(v);
+                if (v === "") activeSenderFilter = [];
+                else if (idx > -1) activeSenderFilter.splice(idx, 1);
+                else activeSenderFilter.push(v);
+            } else {
+                activeSenderFilter = v === "" ? [] : [v];
+            }
+        }
+        else if(sidebarTab === "rep") {
+            if (multi) {
+                const idx = activeRepFilter.indexOf(v);
+                if (v === "") activeRepFilter = [];
+                else if (idx > -1) activeRepFilter.splice(idx, 1);
+                else activeRepFilter.push(v);
+            } else {
+                activeRepFilter = v === "" ? [] : [v];
+            }
+        }
+        else if(sidebarTab === "status") {
+            if(v === "") activeStatusFilter = [];
+            else {
+                const idx = activeStatusFilter.indexOf(v);
+                if(idx > -1) activeStatusFilter.splice(idx, 1);
+                else activeStatusFilter.push(v);
+            }
+        } else {
+            if (multi) {
+                const arr = activeColumnFilters[sidebarTab] || [];
+                if (v === "") delete activeColumnFilters[sidebarTab];
+                else {
+                    const idx = arr.indexOf(v);
+                    if (idx > -1) arr.splice(idx, 1);
+                    else arr.push(v);
+                    if (arr.length) activeColumnFilters[sidebarTab] = arr;
+                    else delete activeColumnFilters[sidebarTab];
+                }
+            } else {
+                if (v === "") delete activeColumnFilters[sidebarTab];
+                else activeColumnFilters[sidebarTab] = [v];
+            }
+        }
+        applyFilters(); refreshSidebar();
+    }
+
+    const debouncedSidebar = debounce(() => refreshSidebar(), 200);
+
+    function rebuildSidebarTabs() {
+        const defaultCols = ['sender', 'rep', 'status'];
+        const allSidebarCols = [...defaultCols, ...sidebarExtraCols.filter(c => !defaultCols.includes(c))];
+
+        if (!allSidebarCols.includes(sidebarTab)) {
+            sidebarTab = allSidebarCols[0] || 'sender';
+        }
+
+        const tabsContainer = document.getElementById('sidebarTabsContainer');
+        const panelsContainer = document.getElementById('sidebarPanelsContainer');
+        if (!tabsContainer || !panelsContainer) return;
+
+        tabsContainer.innerHTML = allSidebarCols.map(c => {
+            const label = colDisplay[c] || c;
+            return `<button class="btn btn-sm btn-outline-secondary flex-grow-1 sidebar-tab-btn ${c === sidebarTab ? 'active' : ''}" data-tab="${c}">${label}</button>`;
+        }).join('');
+
+        panelsContainer.innerHTML = allSidebarCols.map(c => {
+            const isActive = c === sidebarTab;
+            const panelId = c + 'Panel';
+            const searchId = c + 'Search';
+            const listId = c + 'List';
+            return `<div class="sender-filter-panel ${isActive ? 'active' : ''}" id="${panelId}">
+                <div class="p-2"><input type="text" id="${searchId}" class="form-control form-control-sm rounded-pill" placeholder="بحث..."></div>
+                <div class="sender-filter-list" id="${listId}"></div>
+            </div>`;
+        }).join('');
+
+        document.querySelectorAll('.sidebar-tab-btn').forEach(b => b.onclick = () => {
+            document.querySelectorAll('.sidebar-tab-btn').forEach(x => x.classList.remove('active'));
+            document.querySelectorAll('.sender-filter-panel').forEach(x => x.classList.remove('active'));
+            b.classList.add('active'); sidebarTab = b.dataset.tab;
+            document.getElementById(sidebarTab + 'Panel').classList.add('active'); refreshSidebar();
+        });
+
+        allSidebarCols.forEach(c => {
+            const el = document.getElementById(c + 'Search');
+            if (el) el.oninput = debouncedSidebar;
+        });
+
+        refreshSidebar();
+    }
+
+    function showSidebarColsConfig() {
+        const allCols = [...new Set([...allPossibleColumns, ..._extraColumns])];
+        const defaultCols = ['sender', 'rep', 'status'];
+        const optionalCols = allCols.filter(c => !defaultCols.includes(c));
+
+        let html = '<div style="text-align:right;direction:rtl">';
+        html += '<div class="mb-3 p-2" style="background:rgba(59,130,246,0.06);border-radius:10px">';
+        html += '<div class="fw-bold mb-1" style="font-size:0.85rem">الأعمدة الأساسية (دائماً):</div>';
+        defaultCols.forEach(c => {
+            html += `<div class="d-flex align-items-center gap-2 py-1">
+                <input type="checkbox" checked disabled style="accent-color:#3b82f6">
+                <span style="font-size:0.85rem">${colDisplay[c] || c}</span>
+            </div>`;
+        });
+        html += '</div>';
+        html += '<div class="fw-bold mb-2" style="font-size:0.85rem">أعمدة إضافية للفلتر:</div>';
+        if (optionalCols.length === 0) {
+            html += '<p class="text-muted small">لا توجد أعمدة إضافية متاحة</p>';
+        } else {
+            optionalCols.forEach(c => {
+                const checked = sidebarExtraCols.includes(c);
+                html += `<label class="d-flex align-items-center gap-2 py-1" style="cursor:pointer;font-size:0.85rem;border-bottom:1px solid var(--border, #eee)">
+                    <input type="checkbox" class="sidebar-col-check" data-col="${c}" ${checked ? 'checked' : ''} style="accent-color:#3b82f6">
+                    <span>${colDisplay[c] || c}</span>
+                </label>`;
+            });
+        }
+        html += '</div>';
+
+        Swal.fire({
+            title: 'تخصيص أعمدة الفلتر الجانبية',
+            html: html,
+            width: 340,
+            padding: '1.25rem',
+            showConfirmButton: true,
+            confirmButtonText: 'حفظ',
+            showCancelButton: true,
+            cancelButtonText: 'إلغاء',
+            reverseButtons: true,
+            didOpen: () => {
+                document.querySelectorAll('.sidebar-col-check').forEach(cb => {
+                    cb.addEventListener('change', function() {
+                        const col = this.dataset.col;
+                        const idx = sidebarExtraCols.indexOf(col);
+                        if (this.checked && idx === -1) sidebarExtraCols.push(col);
+                        else if (!this.checked && idx > -1) sidebarExtraCols.splice(idx, 1);
+                    });
+                });
+            },
+            preConfirm: () => {
+                localStorage.setItem('sidebar_extra_cols', JSON.stringify(sidebarExtraCols));
+                rebuildSidebarTabs();
+            }
+        }).then(result => {
+            if (!result.isConfirmed) {
+                sidebarExtraCols = JSON.parse(localStorage.getItem('sidebar_extra_cols') || '[]');
+                rebuildSidebarTabs();
+            }
+        });
+    }
+
+    // Selection & Bulk
+    function toggleSelectRow(id, checked) {
+        if (checked) selectedIds.add(id);
+        else selectedIds.delete(id);
+        updateBulkBar();
+    }
+
+    function toggleSelectAll(checked) {
+        if (checked) {
+            currentDisplayData.forEach(r => selectedIds.add(r._id.toString()));
+        } else {
+            currentDisplayData.forEach(r => selectedIds.delete(r._id.toString()));
+        }
+        updateBulkBar();
+        renderTable();
+    }
+
+    function clearSelection() {
+        selectedIds.clear();
+        updateBulkBar();
+        renderTable();
+    }
+
+    function updateBulkBar() {
+        const bar = document.getElementById('bulkActionBar');
+        const badge = document.getElementById('selectedCountBadge');
+        const count = selectedIds.size;
+        
+        if (count > 0) {
+            bar.style.display = 'block';
+            badge.innerText = count;
+            populateBulkStatusMenu();
+            populateBulkRepsMenu();
+        } else {
+            bar.style.display = 'none';
+        }
+    }
+
+    function toggleBulkStatusMenu(e) {
+        e.stopPropagation();
+        const menu = document.getElementById('bulkStatusMenu');
+        menu.classList.toggle('show');
+    }
+    document.addEventListener('click', () => {
+        document.querySelectorAll('.dropdown-menu.show').forEach(m => m.classList.remove('show'));
+    });
+
+    function populateBulkStatusMenu() {
+        const menu = document.getElementById('bulkStatusMenu');
+        // Common statuses
+        const commonStatuses = ["تم", "الغاء", "مؤجل", "تأجيل", "قيد التوصيل", "تعديل سعر", "شحن", "فراغ"];
+        // Also add unique statuses from dataset
+        const datasetStatuses = Array.from(new Set(fullDataset.map(r => normalize(r.status)))).filter(s => s && !commonStatuses.includes(s));
+        
+        let html = '';
+        [...commonStatuses, ...datasetStatuses].forEach(s => {
+            html += `<li><button class="dropdown-item text-end" onclick="bulkAssignStatus('${s}')">${s}</button></li>`;
+        });
+        menu.innerHTML = html;
+    }
+
+    function populateBulkRepsMenu() {
+        const list = document.getElementById('bulkRepsList');
+        if (!list) return;
+        const reps = Array.from(new Set(fullDataset.map(r => normalize(r.rep)).filter(Boolean)));
+        list.innerHTML = reps.map(r => `<option value="${r}">`).join('');
+    }
+
+    async function bulkAssignRep() {
+        if (!await ensureEmployeeName()) return;
+        const input = document.getElementById('bulkRepInput');
+        const rep = normalize(input.value);
+        if (!rep) return Swal.fire('تنبيه', 'برجاء كتابة اسم المندوب', 'warning');
+        
+        let count = 0;
+        selectedIds.forEach(id => {
+            errorCache.delete(parseInt(id));
+            const r = fullDataset.find(x => x._id == id);
+            if (r && normalize(r.rep) !== rep) {
+                const oldVal = r.rep;
+                actionHistory.push({ id: parseInt(id), col: 'rep', oldVal, newVal: rep, time: new Date() });
+                
+                if (!modifiedCells.has(id + '_rep')) modifiedCells.set(id + '_rep', oldVal);
+                else if (normalize(rep) === normalize(modifiedCells.get(id + '_rep'))) modifiedCells.delete(id + '_rep');
+
+                r.rep = rep;
+                count++;
+            }
+        });
+        
+        if (count > 0) {
+            Swal.fire({ icon: 'success', title: `تم تعيين المندوب لـ ${count} شحنة`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            input.value = '';
+            updateChangesBadge();
+            applyFilters();
+            refreshSidebar();
+            saveToLocalStorage();
+        }
+    }
+
+    async function bulkAssignStatus(status) {
+        if (!await ensureEmployeeName()) return;
+        let count = 0;
+        selectedIds.forEach(id => {
+            errorCache.delete(parseInt(id));
+            const r = fullDataset.find(x => x._id == id);
+            if (r && normalize(r.status) !== status) {
+                const oldVal = r.status;
+                actionHistory.push({ id: parseInt(id), col: 'status', oldVal, newVal: status, time: new Date() });
+                
+                if (!modifiedCells.has(id + '_status')) modifiedCells.set(id + '_status', oldVal);
+                else if (normalize(status) === normalize(modifiedCells.get(id + '_status'))) modifiedCells.delete(id + '_status');
+
+                r.status = status;
+                count++;
+            }
+        });
+        
+        if (count > 0) {
+            Swal.fire({ icon: 'success', title: `تم تغيير الحالة لـ ${count} شحنة`, toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+            updateChangesBadge();
+            applyFilters();
+            refreshSidebar();
+            saveToLocalStorage();
+        }
+    }
+
+    async function bulkDeleteSelected() {
+        if (!await ensureEmployeeName()) return;
+        Swal.fire({
+            title: 'حذف الشحنات المختارة؟',
+            text: `أنت على وشك حذف ${selectedIds.size} شحنة نهائياً من القائمة الحالية (سيتم حذفها عند الحفظ أو التصدير).`,
+            icon: 'warning',
+            showCancelButton: true,
+            confirmButtonColor: '#ef4444',
+            confirmButtonText: 'نعم، احذف',
+            cancelButtonText: 'إلغاء'
+        }).then(result => {
+            if (result.isConfirmed) {
+                const idsToDelete = new Set(selectedIds);
+                fullDataset = fullDataset.filter(r => !idsToDelete.has(r._id.toString()));
+                buildCaches();
+                clearSelection();
+                applyFilters();
+                refreshSidebar();
+                saveToLocalStorage();
+                Swal.fire('تم الحذف', 'تم حذف الشحنات من القائمة الحالية', 'success');
+            }
+        });
+    }
+
+    function isDesktopApp() { return !!(window.desktopAPI && window.desktopAPI.isDesktopApp); }
+
+    // Error Log Functions
+    function updateErrorBadge() {
+        const badge = document.getElementById('errorBadge');
+        const count = errorLog.length;
+        if (count > 0) {
+            badge.textContent = count > 99 ? '99+' : count;
+            badge.style.display = 'inline';
+        } else {
+            badge.style.display = 'none';
+        }
+    }
+    function renderErrorLog() {
+        const container = document.getElementById('errorLogContainer');
+        if (!container) return;
+        if (!errorLog.length) {
+            container.innerHTML = '<div class="empty-error-log"><i class="fas fa-check-circle text-success mb-2" style="font-size:2rem;display:block"></i>\u0644\u0627 \u062A\u0648\u062C\u062F \u0623\u062E\u0637\u0627\u0621 \u0628\u0631\u0645\u062C\u064A\u0629 \u062D\u062A\u0649 \u0627\u0644\u0622\u0646</div>';
+            return;
+        }
+        container.innerHTML = errorLog.map(function(e) {
+            var stackHtml = e.stack ? '<div class="error-stack" onclick="this.classList.toggle(\'expanded\')">' + e.stack.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' : '';
+            var locHtml = (e.source || e.line) ? '<div class="error-loc">' + (e.source || '') + (e.line ? ':' + e.line : '') + '</div>' : '';
+            return '<div class="error-entry"><div class="error-time">' + e.time + '</div><div class="error-msg">' + e.message.replace(/</g, '&lt;').replace(/>/g, '&gt;') + '</div>' + locHtml + stackHtml + '</div>';
+        }).join('');
+        document.getElementById('errorLogCount').textContent = errorLog.length;
+    }
+
+    // Error Log Events
+    document.getElementById('errorLogBtn').onclick = function() { document.getElementById('errorLogOverlay').hidden = false; renderErrorLog(); };
+    document.getElementById('closeErrorLogBtn').onclick = function() { document.getElementById('errorLogOverlay').hidden = true; };
+    document.getElementById('errorLogOverlay').addEventListener('click', function(e) { if (e.target === e.currentTarget) document.getElementById('errorLogOverlay').hidden = true; });
+    document.getElementById('clearErrorLogBtn').onclick = function() {
+        errorLog.length = 0;
+        updateErrorBadge();
+        renderErrorLog();
+    };
+
+    function copySelectedRows() {
+        const selected = Array.from(document.querySelectorAll('.data-table tbody input[type="checkbox"]:checked'));
+        if(!selected.length) return Swal.fire('تنبيه','لم يتم تحديد أي صفوف','info');
+        
+        let text = colOrder.map(c => colDisplay[c]).join('\t') + '\n';
+        selected.forEach(cb => {
+            const id = parseInt(cb.closest('tr').dataset.id);
+            const r = fullDataset.find(x => x._id === id);
+            text += colOrder.map(c => r[c]).join('\t') + '\n';
+        });
+        
+        navigator.clipboard.writeText(text).then(() => {
+            Swal.fire({ icon: 'success', title: 'تم نسخ ' + selected.length + ' صف', toast: true, timer: 1500, showConfirmButton: false });
+        });
+    }
+
+    // Close dialog (professional Swal)
+    if (window.desktopAPI && window.desktopAPI.onRequestCloseDialog) {
+        window.desktopAPI.onRequestCloseDialog(async () => {
+            const hasChanges = modifiedCells.size > 0;
+            const { value } = await Swal.fire({
+                title: hasChanges ? 'تعديلات غير محفوظة' : 'إنهاء البرنامج',
+                icon: hasChanges ? 'warning' : 'question',
+                html: hasChanges
+                    ? '<div style="text-align:center;font-size:0.95rem;color:#64748b;margin-bottom:8px;">لديك تعديلات لم يتم حفظها. اختر ما تريد فعله قبل الإنهاء:</div>'
+                    : '<div style="text-align:center;font-size:0.95rem;color:#64748b;">هل تريد إنهاء البرنامج؟</div>',
+                showCancelButton: true,
+                confirmButtonText: hasChanges ? '💾 حفظ وإنهاء' : 'نعم، إنهاء',
+                cancelButtonText: 'إلغاء',
+                showDenyButton: hasChanges,
+                denyButtonText: '🗑️ تجاهل التعديلات',
+                reverseButtons: true,
+                buttonsStyling: false,
+                customClass: {
+                    confirmButton: 'btn btn-success rounded-pill px-4 mx-1',
+                    denyButton: 'btn btn-outline-danger rounded-pill px-4 mx-1',
+                    cancelButton: 'btn btn-secondary rounded-pill px-4 mx-1',
+                    popup: 'rounded-4'
+                }
+            });
+            if (value === true && hasChanges) {
+                await handleSave(true);
+                window.desktopAPI.forceClose();
+            } else if (value === false && hasChanges) {
+                window.desktopAPI.forceClose();
+            } else if (value === true && !hasChanges) {
+                window.desktopAPI.forceClose();
+            }
+        });
+    }
+
+    async function handleSave(skipConfirm) {
+        if(!modifiedCells.size) return Swal.fire('تنبيه','لا توجد تعديلات لحفظها','info');
+
+        if (!skipConfirm) {
+            const modifiedRowsCount = new Set(Array.from(modifiedCells.keys()).map(k => String(k).split('_')[0])).size;
+            const confirmSave = await Swal.fire({
+                title: 'تأكيد الحفظ',
+                text: 'هل أنت متأكد من حفظ التعديلات؟ تم تعديل ' + modifiedRowsCount + ' صفوف.',
+                icon: 'question',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، احفظ',
+                cancelButtonText: 'إلغاء',
+                reverseButtons: true
+            });
+            if (!confirmSave.isConfirmed) return;
+        }
+
+        try {
+            showLoading(true, 'جاري تجهيز الحفظ...', 10);
+            const empName = localStorage.getItem('employee_name') || 'موظف';
+            ['اسم الموظف','حدث'].forEach(col => { if (!colOrder.includes(col)) colOrder.push(col); });
+            const modifiedRowIds = new Set(Array.from(modifiedCells.keys()).map(k => String(k).split('_')[0]));
+            fullDataset.forEach(r => { if (modifiedRowIds.has(r._id.toString())) r['اسم الموظف'] = empName; });
+            checkCancel();
+            showLoading(true, 'جاري كتابة ملف Excel...', 40);
+            const ws = XLSX.utils.json_to_sheet(fullDataset.map(r => {
+                const out = {};
+                colOrder.forEach(c => out[Object.keys(colMap).find(k => colMap[k] === c) || c] = r[c]);
+                return out;
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+
+            if (actionHistory.length) {
+                const empName = localStorage.getItem('employee_name') || 'موظف';
+                const historyRows = actionHistory.map(a => {
+                    const r = fullDataset.find(x => x._id === a.id);
+                    return {
+                        'الوقت': a.time instanceof Date ? a.time.toLocaleString('ar-EG') : '',
+                        'اسم الموظف': empName,
+                        'اسم العميل': r ? r.customerName : '',
+                        'المنتج': r ? r.product : '',
+                        'الهاتف': r ? r.phone : '',
+                        'هاتف بديل': r ? r.altPhone : '',
+                        'الراسل': r ? r.sender : '',
+                        'المبلغ': r ? r.amount : '',
+                        'كود الشحنة': r ? r.code : '',
+                        'المندوب': r ? r.rep : '',
+                        'الحالة': r ? r.status : '',
+                        'العمود المعدل': colDisplay[a.col] || a.col,
+                        'القيمة القديمة': a.oldVal || '',
+                        'القيمة الجديدة': a.newVal || ''
+                    };
+                });
+                const historyWs = XLSX.utils.json_to_sheet(historyRows);
+                XLSX.utils.book_append_sheet(wb, historyWs, "سجل العمليات");
+            }
+
+            const buf = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+            checkCancel();
+
+            let originalName = 'شحنات_محدثة.xlsx';
+            showLoading(true, 'جاري الحفظ في الملف الأصلي...', 60);
+            try {
+                const db = await openDB();
+                const entry = await new Promise(r => {
+                    const req = db.transaction("files").objectStore("files").get("lastFile");
+                    req.onsuccess = () => r(req.result);
+                });
+                if (entry && entry.name) originalName = entry.name;
+                await saveToCache({ name: originalName }, buf);
+            } catch(e) {}
+            checkCancel();
+
+            if (window.desktopAPI && window.desktopAPI.saveExcelToDesktop) {
+                await window.desktopAPI.saveExcelToDesktop({ name: originalName, data: buf });
+            } else {
+                const blob = new Blob([buf], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = originalName;
+                a.click();
+                URL.revokeObjectURL(a.href);
+            }
+            checkCancel();
+
+            modifiedCells.clear();
+            saveToLocalStorage();
+            showLoading(true, 'جاري تحديث الجدول...', 90);
+            updateChangesBadge();
+            renderTable();
+            showLoading(false);
+            Swal.fire('تم الحفظ', `تم حفظ التعديلات في الملف الأصلي: ${originalName}`, 'success');
+        } catch(e) {
+            if (e.message === 'CANCEL') {
+                showLoading(false);
+                Swal.fire({ icon: 'info', title: 'تم الإلغاء', text: 'تم إلغاء عملية الحفظ', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+                return;
+            }
+            throw e;
+        }
+    };
+    
+    // Logic for Exporting by Representative (Reps Folder)
+    async function exportByRep() {
+        if (!currentDisplayData.length) return Swal.fire('تنبيه', 'لا توجد بيانات ظاهرة لتصديرها', 'info');
+
+        const repsMap = new Map();
+        currentDisplayData.forEach(r => {
+            const rep = normalize(r.rep) || "بدون مندوب";
+            if (!repsMap.has(rep)) repsMap.set(rep, []);
+            repsMap.get(rep).push(r);
+        });
+
+        const confirmExport = await Swal.fire({
+            title: 'تصدير للمناديب',
+            text: `سيتم إنشاء ملف منفصل لكل مندوب (${repsMap.size} مناديب). هل ترغب في المتابعة؟`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'تصدير',
+            cancelButtonText: 'إلغاء'
+        });
+
+        if (!confirmExport.isConfirmed) return;
+
+        showLoading(true, 'جاري التصدير...', 5);
+
+        const exportFiles = [];
+        for (const [repName, rows] of repsMap.entries()) {
+            const ws = XLSX.utils.json_to_sheet(rows.map(r => {
+                const out = {};
+                colOrder.forEach(c => out[Object.keys(colMap).find(k => colMap[k] === c) || c] = r[c]);
+                return out;
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            
+            if (isDesktopApp()) {
+                const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+                exportFiles.push({ name: `${repName}.xlsx`, data: buffer });
+            } else {
+                XLSX.writeFile(wb, `${repName}.xlsx`);
+            }
+        }
+
+        if (isDesktopApp() && exportFiles.length) {
+            try {
+                const result = await window.desktopAPI.exportToRepsFolder(exportFiles);
+                if (result.success) {
+                    Swal.fire('تم التصدير', `تم حفظ الملفات بنجاح في مجلد "المناديب" على سطح المكتب`, 'success');
+                } else {
+                    Swal.fire('خطأ', result.message || 'فشل التصدير للمجلد', 'error');
+                }
+            } catch (e) {
+                Swal.fire('خطأ', 'وظيفة الحفظ التلقائي في المجلد غير مدعومة في هذا الإصدار من التطبيق.', 'error');
+                exportFiles.forEach(f => {
+                    const blob = new Blob([f.data], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = f.name; a.click();
+                });
+            }
+        } else if (!isDesktopApp()) {
+            Swal.fire('تم التصدير', 'تم تحميل الملفات بنجاح بنسخ منفصلة', 'success');
+        }
+
+        showLoading(false);
+    }
+    
+    // Logic for Exporting by Sender (Senders Folder)
+    async function exportBySender() {
+        if (!currentDisplayData.length) return Swal.fire('تنبيه', 'لا توجد بيانات ظاهرة لتصديرها', 'info');
+
+        const sendersMap = new Map();
+        currentDisplayData.forEach(r => {
+            const sender = normalize(r.sender) || "بدون راسل";
+            if (!sendersMap.has(sender)) sendersMap.set(sender, []);
+            sendersMap.get(sender).push(r);
+        });
+
+        const confirmExport = await Swal.fire({
+            title: 'تصدير للراسلين',
+            text: `سيتم إنشاء ملف منفصل لكل راسل (${sendersMap.size} راسلين). هل ترغب في المتابعة؟`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'تصدير',
+            cancelButtonText: 'إلغاء'
+        });
+
+        if (!confirmExport.isConfirmed) return;
+
+        showLoading(true, 'جاري التصدير...', 5);
+
+        const exportFiles = [];
+        for (const [senderName, rows] of sendersMap.entries()) {
+            const ws = XLSX.utils.json_to_sheet(rows.map(r => {
+                const out = {};
+                colOrder.forEach(c => out[Object.keys(colMap).find(k => colMap[k] === c) || c] = r[c]);
+                return out;
+            }));
+            const wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+            
+            if (isDesktopApp()) {
+                const buffer = XLSX.write(wb, { type: 'array', bookType: 'xlsx' });
+                exportFiles.push({ name: `${senderName}.xlsx`, data: buffer });
+            } else {
+                XLSX.writeFile(wb, `${senderName}.xlsx`);
+            }
+        }
+
+        if (isDesktopApp() && exportFiles.length) {
+            try {
+                const result = await window.desktopAPI.exportToSendersFolder(exportFiles);
+                if (result.success) {
+                    Swal.fire('تم التصدير', `تم حفظ الملفات بنجاح في مجلد "الراسلين" على سطح المكتب`, 'success');
+                } else {
+                    Swal.fire('خطأ', result.message || 'فشل التصدير للمجلد', 'error');
+                }
+            } catch (e) {
+                Swal.fire('خطأ', 'وظيفة الحفظ التلقائي في مجلد الراسلين غير مدعومة أو فشلت.', 'error');
+                exportFiles.forEach(f => {
+                    const blob = new Blob([f.data], {type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"});
+                    const url = URL.createObjectURL(blob);
+                    const a = document.createElement("a");
+                    a.href = url; a.download = f.name; a.click();
+                });
+            }
+        } else if (!isDesktopApp()) {
+            Swal.fire('تم التصدير', 'تم تحميل الملفات بنجاح بنسخ منفصلة', 'success');
+        }
+
+        showLoading(false);
+    }
+
+    document.getElementById('exportTemplateBtn').onclick = () => {
+        const headers = allPossibleColumns.map(c => colDisplay[c]);
+        const ws = XLSX.utils.aoa_to_sheet([headers]);
+        const wb = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(wb, ws, "Sheet1");
+        XLSX.writeFile(wb, "shipping_template.xlsx");
+    };
+
+    document.getElementById('generateCodesBtn').onclick = () => {
+        if (!fullDataset.length) return Swal.fire('تنبيه', 'لا توجد بيانات لتوليد أكواد لها', 'info');
+        
+        let targetRows = [];
+        let contextText = "";
+        
+        if (selectedIds.size > 0) {
+            targetRows = fullDataset.filter(r => selectedIds.has(r._id.toString()) && !r.code);
+            contextText = `لـ ${targetRows.length} شحنة مختارة (بدون كود)`;
+            if (targetRows.length === 0) {
+                 return Swal.fire('تنبيه', 'جميع الشحنات المختارة لديها أكواد بالفعل', 'info');
+            }
+        } else {
+            targetRows = fullDataset.filter(r => !r.code);
+            contextText = `لـ ${targetRows.length} شحنة (التي لا تملك كود حالياً)`;
+            if (targetRows.length === 0) {
+                return Swal.fire('تنبيه', 'جميع الشحنات لديها أكواد بالفعل', 'info');
+            }
+        }
+
+        Swal.fire({
+            title: 'توليد أكواد فريدة',
+            text: `هل تريد توليد أكواد تلقائية ${contextText}؟ سيتم استخدام نظام فريد يمنع التكرار (مثال: AR-240519-XYZ123).`,
+            icon: 'question',
+            showCancelButton: true,
+            confirmButtonText: 'نعم، ولد الأكواد',
+            cancelButtonText: 'إلغاء'
+        }).then((result) => {
+            if (result.isConfirmed) {
+                const existingCodes = new Set(fullDataset.map(r => r.code).filter(Boolean));
+                
+                targetRows.forEach(r => {
+                    let newCode;
+                    do {
+                        const now = new Date();
+                        const dateStr = now.getFullYear().toString().slice(-2) + 
+                                       (now.getMonth()+1).toString().padStart(2,'0') + 
+                                       now.getDate().toString().padStart(2,'0');
+                        const randomStr = Math.random().toString(36).substring(2, 8).toUpperCase();
+                        newCode = `AR-${dateStr}-${randomStr}`;
+                    } while (existingCodes.has(newCode));
+                    
+                    r.code = newCode;
+                    existingCodes.add(newCode);
+                });
+                
+                renderTable();
+                updateChangesBadge();
+                saveToLocalStorage();
+                Swal.fire('تم', `تم توليد الأكواد لـ ${targetRows.length} شحنة بنجاح`, 'success');
+            }
+        });
+    };
+
+    // IndexedDB Persistence
+    async function saveToCache(file, buffer) {
+        try {
+            const db = await openDB();
+            const tx = db.transaction("files", "readwrite");
+            tx.objectStore("files").put({ name: file.name, data: buffer, time: Date.now() }, "lastFile");
+            document.getElementById('exportSavedBtn').disabled = false;
+        } catch(e) {}
+    }
+
+    async function exportSavedCopy() {
+        try {
+            const db = await openDB();
+            const entry = await new Promise(r => {
+                const req = db.transaction("files").objectStore("files").get("lastFile");
+                req.onsuccess = () => r(req.result);
+            });
+            if (!entry) { Swal.fire('تنبيه', 'لا يوجد ملف محفوظ', 'info'); return; }
+            if (window.desktopAPI && window.desktopAPI.saveExcelToDesktop) {
+                await window.desktopAPI.saveExcelToDesktop({ name: entry.name, data: new Uint8Array(entry.data) });
+                Swal.fire('تم', 'تم تصدير الملف إلى سطح المكتب: ' + entry.name, 'success');
+            } else {
+                const blob = new Blob([entry.data], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+                const a = document.createElement('a');
+                a.href = URL.createObjectURL(blob);
+                a.download = entry.name;
+                a.click();
+                URL.revokeObjectURL(a.href);
+                Swal.fire('تم', 'تم تحميل الملف: ' + entry.name, 'success');
+            }
+        } catch(e) {
+            Swal.fire('خطأ', 'فشل تصدير الملف المحفوظ', 'error');
+        }
+    }
+
+    function openDB() {
+        return new Promise((res, rej) => {
+            const req = indexedDB.open("shipmentDB", 1);
+            req.onupgradeneeded = () => req.result.createObjectStore("files");
+            req.onsuccess = () => res(req.result);
+            req.onerror = () => rej();
+        });
+    }
+
+    // Initial check for last file
+    openDB().then(db => {
+        const req = db.transaction("files").objectStore("files").get("lastFile");
+        req.onsuccess = () => { if(req.result) { document.getElementById('exportSavedBtn').disabled = false; showFileName(req.result.name, 'cache'); } };
+    });
+
+    // Update handleFile to save to cache
+    const originalHandleFile = handleFile;
+    handleFile = async (file) => {
+        const reader = new FileReader();
+        reader.onload = (e) => saveToCache(file, e.target.result);
+        reader.readAsArrayBuffer(file);
+        return originalHandleFile(file);
+    };
+
+    // Dashboard Logic using D3.js
+    document.getElementById('dashboardBtn').onclick = () => {
+        if (!fullDataset.length) return Swal.fire('تنبيه', 'برجاء تحميل ملف البيانات أولاً لعرض الإحصائيات.', 'info');
+        document.getElementById('dashboardOverlay').style.display = 'flex';
+        updateDashboardKPIs();
+        renderCharts();
+    };
+    
+    document.getElementById('closeDashboardBtn').onclick = () => {
+        document.getElementById('dashboardOverlay').style.display = 'none';
+        d3.select("#statusChart").selectAll("*").remove();
+        d3.select("#repsChart").selectAll("*").remove();
+        d3.select("#amountByStatusChart").selectAll("*").remove();
+        d3.select("#senderChart").selectAll("*").remove();
+    };
+
+    function updateDashboardKPIs() {
+        const totalShipments = fullDataset.length;
+        const totalAmount = d3.sum(fullDataset, d => parseFloat(d.amount) || 0);
+        const pendingStatuses = ["قيد", "جاري", "تحت", "خرج"];
+        const returnsStatuses = ["مرتج", "رفض"];
+        
+        const pendingCount = fullDataset.filter(d => pendingStatuses.some(s => (d.status||"").includes(s))).length;
+        const returnedCount = fullDataset.filter(d => returnsStatuses.some(s => (d.status||"").includes(s))).length;
+        const uniqueReps = new Set(fullDataset.map(d => normalize(d.rep)).filter(r => r && r !== "بدون مندوب")).size;
+
+        document.getElementById('kpi-total-shipments').innerText = totalShipments.toLocaleString();
+        document.getElementById('kpi-total-amount').innerText = totalAmount.toLocaleString() + " ج.م";
+        document.getElementById('kpi-pending-shipments').innerText = pendingCount.toLocaleString();
+        document.getElementById('kpi-total-reps').innerText = uniqueReps.toLocaleString();
+        document.getElementById('kpi-returned-shipments').innerText = returnedCount.toLocaleString();
+    }
+
+    function renderCharts() {
+        // Use nice modern colors
+        const colors = ["#2563eb", "#10b981", "#f59e0b", "#ef4444", "#8b5cf6", "#06b6d4", "#ec4899", "#6366f1"];
+
+        const statuses = d3.rollups(fullDataset, v => v.length, d => normalize(d.status) || "بدون حالة");
+        const reps = d3.rollups(fullDataset, v => v.length, d => normalize(d.rep) || "بدون مندوب")
+            .filter(d => d[0] !== "بدون مندوب")
+            .sort((a,b) => b[1] - a[1]).slice(0, 8);
+        const amountsByStatus = d3.rollups(fullDataset, v => d3.sum(v, d => parseFloat(d.amount) || 0), d => normalize(d.status) || "بدون حالة")
+            .sort((a,b) => b[1] - a[1]);
+        const senders = d3.rollups(fullDataset, v => v.length, d => normalize(d.sender) || "بدون راسل")
+            .sort((a,b) => b[1] - a[1]).slice(0, 8);
+
+        renderPieChart("#statusChart", statuses, colors);
+        renderBarChart("#repsChart", reps, "المندوب", "الشحنات", false, "#6366f1");
+        renderBarChart("#amountByStatusChart", amountsByStatus, "الحالة", "المبلغ", true, "#10b981");
+        renderBarChart("#senderChart", senders, "الراسل", "الشحنات", false, "#f59e0b");
+    }
+
+    function renderPieChart(selector, data, colorPalette) {
+        const target = d3.select(selector);
+        target.selectAll("*").remove();
+        const width = target.node().clientWidth || 300, height = 300;
+        const radius = Math.min(width, height) / 2 - 40;
+        const color = d3.scaleOrdinal().range(colorPalette);
+        
+        const svg = target.append("svg").attr("width", "100%").attr("height", height)
+            .attr("viewBox", `0 0 ${width} ${height}`)
+            .append("g").attr("transform", `translate(${width / 2}, ${height / 2})`);
+        
+        const pie = d3.pie().value(d => d[1]).sort(null);
+        const arc = d3.arc().innerRadius(radius * 0.5).outerRadius(radius);
+        const outerArc = d3.arc().innerRadius(radius * 1.1).outerRadius(radius * 1.1);
+
+        const arcs = svg.selectAll("path").data(pie(data)).enter().append("path")
+            .attr("d", arc).attr("fill", d => color(d.data[0]))
+            .attr("stroke", "white").style("stroke-width", "2px")
+            .style("opacity", 0.8)
+            .on("mouseover", function() { d3.select(this).transition().duration(200).style("opacity", 1).attr("transform", "scale(1.05)"); })
+            .on("mouseout", function() { d3.select(this).transition().duration(200).style("opacity", 0.8).attr("transform", "scale(1)"); });
+
+        // Tooltip
+        arcs.on("mousemove", (event, d) => {
+            let tooltip = d3.select("#d3-tooltip");
+            if (tooltip.empty()) tooltip = d3.select("body").append("div").attr("id", "d3-tooltip").attr("class", "d3-tooltip");
+            const percent = ((d.data[1] / fullDataset.length) * 100).toFixed(1);
+            tooltip.style("opacity", 1).html(`<div class="fw-bold">${d.data[0]}</div><div>العدد: ${d.data[1]} (${percent}%)</div>`)
+                .style("left", (event.pageX + 15) + "px").style("top", (event.pageY + 15) + "px");
+        }).on("mouseleave", () => d3.select("#d3-tooltip").style("opacity", 0));
+    }
+
+    function renderBarChart(selector, data, labelX, labelY, isCurrency = false, color) {
+        const target = d3.select(selector);
+        target.selectAll("*").remove();
+        const margin = { top: 20, right: 30, bottom: 80, left: 70 };
+        const width = target.node().clientWidth - margin.left - margin.right;
+        const height = 300 - margin.top - margin.bottom;
+
+        const x = d3.scaleBand().range([0, width]).domain(data.map(d => d[0])).padding(0.4);
+        const y = d3.scaleLinear().range([height, 0]).domain([0, (d3.max(data, d => d[1]) || 1) * 1.15]);
+
+        const svg = target.append("svg").attr("width", "100%").attr("height", height + margin.top + margin.bottom)
+            .append("g").attr("transform", `translate(${margin.left}, ${margin.top})`);
+
+        svg.append("g").attr("transform", `translate(0, ${height})`).call(d3.axisBottom(x))
+            .selectAll("text").attr("transform", "rotate(-35)").style("text-anchor", "end").style("font-size", "11px").style("font-weight", "500").style("fill", "#64748b");
+        
+        svg.append("g").call(d3.axisLeft(y).ticks(5).tickFormat(d => isCurrency ? d.toLocaleString() : d))
+            .selectAll("text").style("fill", "#64748b").style("font-size", "11px");
+
+        svg.selectAll("rect").data(data).enter().append("rect")
+            .attr("x", d => x(d[0])).attr("y", height).attr("width", x.bandwidth()).attr("height", 0)
+            .attr("fill", color).attr("rx", 6)
+            .transition().duration(800).delay((d, i) => i * 50)
+            .attr("y", d => y(d[1])).attr("height", d => height - y(d[1]));
+
+        svg.selectAll("rect")
+            .on("mouseover", function() { d3.select(this).transition().duration(200).attr("opacity", 0.8); })
+            .on("mouseout", function() { d3.select(this).transition().duration(200).attr("opacity", 1); })
+            .on("mousemove", (event, d) => {
+                let tooltip = d3.select("#d3-tooltip");
+                if (tooltip.empty()) tooltip = d3.select("body").append("div").attr("id", "d3-tooltip").attr("class", "d3-tooltip");
+                tooltip.style("opacity", 1).html(`<div class="fw-bold">${d[0]}</div><div>${labelY}: ${isCurrency ? d[1].toLocaleString() + ' ج.م' : d[1]}</div>`)
+                    .style("left", (event.pageX + 15) + "px").style("top", (event.pageY + 15) + "px");
+            }).on("mouseleave", () => d3.select("#d3-tooltip").style("opacity", 0));
+    }
+
+    function undoLastAction() {
+        if (!actionHistory.length) return;
+        const last = actionHistory.pop();
+        const r = fullDataset.find(x => x._id === last.id);
+        if (r) {
+            r[last.col] = last.oldVal;
+            const key = last.id + '_' + last.col;
+            if (modifiedCells.has(key)) {
+                if (normalize(last.oldVal) === normalize(modifiedCells.get(key))) {
+                    modifiedCells.delete(key);
+                }
+            }
+            updateChangesBadge();
+            if (['phone', 'altPhone', 'amount', 'rep', 'status'].includes(last.col)) {
+                applyFilters();
+                if (['rep', 'status', 'sender'].includes(last.col)) refreshSidebar();
+            } else {
+                renderTable();
+            }
+            saveToLocalStorage();
+            Swal.fire({ icon: 'info', title: 'تم التراجع عن آخر عملية', toast: true, position: 'top-end', showConfirmButton: false, timer: 1500 });
+        }
+    }
+
+    function showHistory() {
+        if (!actionHistory.length) return Swal.fire('تنبيه', 'لا يوجد سجل عمليات حتى الآن', 'info');
+
+        const modifiedCols = [...new Set(actionHistory.map(a => a.col))];
+        const allCols = modifiedCols.filter(c => colDisplay[c]);
+
+        const renderItems = (term = "", colFilter = "") => {
+            const filtered = actionHistory.filter(a => {
+                if (colFilter && a.col !== colFilter) return false;
+                const r = fullDataset.find(x => x._id === a.id);
+                const customer = r ? r.customerName : "مجهول";
+                const colName = colDisplay[a.col] || a.col;
+                const searchStr = `${customer} ${colName} ${a.oldVal} ${a.newVal} ${r ? r.product + ' ' + r.phone + ' ' + r.sender + ' ' + r.amount + ' ' + r.rep + ' ' + r.status : ''}`.toLowerCase();
+                return !term || searchStr.includes(term.toLowerCase());
+            });
+
+            if (!filtered.length) return '<div class="text-center py-3 text-muted">لا توجد نتائج مطابقة</div>';
+
+            return [...filtered].reverse().map(a => {
+                const r = fullDataset.find(x => x._id === a.id);
+                const customer = r ? r.customerName : "مجهول";
+                const colName = colDisplay[a.col] || a.col;
+                return `
+                    <div class="border-bottom py-2 mb-2">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-secondary">${a.time.toLocaleTimeString()}</span>
+                            <strong class="text-primary">${customer}</strong>
+                        </div>
+                        <div class="small mt-1">تعديل <b>${colName}</b> من <i>${a.oldVal || '(فارغ)'}</i> إلى <b>${a.newVal || '(فارغ)'}</b></div>
+                        ${r ? `<div class="small text-muted mt-1 d-flex flex-wrap gap-2">
+                            <span><i class="fas fa-box text-warning"></i> ${escapeHtml(r.product || '-')}</span>
+                            <span><i class="fas fa-barcode text-info"></i> ${escapeHtml(r.code || '-')}</span>
+                            <span><i class="fas fa-phone text-success"></i> ${escapeHtml(r.phone || '-')}</span>
+                            <span><i class="fas fa-phone-alt text-info"></i> ${escapeHtml(r.altPhone || '-')}</span>
+                            <span><i class="fas fa-user-friends text-secondary"></i> ${escapeHtml(r.sender || '-')}</span>
+                            <span><i class="fas fa-money-bill-wave text-success"></i> ${escapeHtml(r.amount || '-')}</span>
+                            <span><i class="fas fa-user-tag text-primary"></i> ${escapeHtml(r.rep || '-')}</span>
+                            <span><i class="fas fa-tag text-danger"></i> ${escapeHtml(r.status || '-')}</span>
+                        </div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        };
+
+        Swal.fire({
+            title: 'سجل العمليات الأخير',
+            html: `
+                <div class="d-flex gap-2 mb-2">
+                    <select id="historyColFilter" class="form-select form-select-sm rounded-pill" style="max-width:180px">
+                        <option value="">كل الأعمدة</option>
+                        ${allCols.map(c => `<option value="${c}">${colDisplay[c]}</option>`).join('')}
+                    </select>
+                    <input type="text" id="historySearch" class="form-control form-control-sm rounded-pill" placeholder="بحث في السجل...">
+                </div>
+                <div class="text-end" id="historyItemsContainer" style="max-height: 380px; overflow-y: auto;">
+                    ${renderItems()}
+                </div>
+            `,
+            confirmButtonText: 'إغلاق',
+            customClass: { popup: 'rounded-4' },
+            didOpen: () => {
+                const container = Swal.getHtmlContainer().querySelector('#historyItemsContainer');
+                const input = Swal.getHtmlContainer().querySelector('#historySearch');
+                const select = Swal.getHtmlContainer().querySelector('#historyColFilter');
+                const refresh = () => container.innerHTML = renderItems(input.value, select.value);
+                input.oninput = refresh;
+                select.onchange = refresh;
+            }
+        });
+    }
+
+    function printLabels() {
+        if (!selectedIds.size) return Swal.fire('تنبيه', 'برجاء تحديد الشحنات المطلوب طباعة بوليصاتها أولاً', 'info');
+        
+        const selected = Array.from(selectedIds).map(id => fullDataset.find(x => x._id == id)).filter(Boolean);
+        
+        let html = `
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700&display=swap');
+                body { margin: 0; font-family: 'Cairo', sans-serif; direction: rtl; }
+                .label-container { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; padding: 10px; }
+                .label-card { border: 2px solid #000; padding: 15px; border-radius: 8px; min-height: 50mm; position: relative; }
+                .label-header { border-bottom: 2px solid #000; padding-bottom: 5px; margin-bottom: 10px; font-weight: bold; font-size: 1.2rem; }
+                .label-row { margin-bottom: 5px; font-size: 0.9rem; }
+                .label-qr { position: absolute; left: 10px; bottom: 10px; }
+                @media print {
+                    .page-break { page-break-after: always; }
+                }
+            </style>
+            <div class="label-container">
+        `;
+
+        selected.forEach((r, i) => {
+            html += `
+                <div class="label-card">
+                    <div class="label-header d-flex justify-content-between">
+                        <span>${r.sender}</span>
+                        <span>${r.code}</span>
+                    </div>
+                    <div class="label-row"><b>العميل:</b> ${r.customerName}</div>
+                    <div class="label-row"><b>الهاتف:</b> ${r.phone}</div>
+                    ${r.address ? `<div class="label-row"><b>العنوان:</b> ${r.address}</div>` : ''}
+                    <div class="label-row"><b>المنطقة:</b> ${r.zone}</div>
+                    <div class="label-row"><b>المبلغ:</b> <span style="font-size: 1.2rem; font-weight: bold;">${r.amount} ج.م</span></div>
+                    <div class="label-qr" id="qr-print-${i}"></div>
+                </div>
+                ${(i + 1) % 10 === 0 ? '</div><div class="page-break"></div><div class="label-container">' : ''}
+            `;
+        });
+        
+        html += '</div>';
+
+        const printWin = window.open('', '_blank');
+        printWin.document.write(`<html><head><title>طباعة البوليصات</title></head><body>${html}</body></html>`);
+        printWin.document.close();
+        
+        // Ensure qrcode.js is loaded in the new window or generate here
+        // Since window.open might not have our script tags, we'll use a trick
+        const script = printWin.document.createElement('script');
+        script.src = 'https://cdnjs.cloudflare.com/ajax/libs/qrcodejs/1.0.0/qrcode.min.js';
+        script.onload = () => {
+            selected.forEach((r, i) => {
+                new printWin.QRCode(printWin.document.getElementById(`qr-print-${i}`), { text: r.code, width: 80, height: 80 });
+            });
+            setTimeout(() => { printWin.print(); }, 500);
+        };
+        printWin.document.body.appendChild(script);
+    }
+
+    const STORAGE_KEY = "shipments_autosave";
+    const HISTORY_KEY = "shipments_history";
+
+    function saveActionHistory() {
+        try {
+            localStorage.setItem(HISTORY_KEY, JSON.stringify({
+                history: actionHistory,
+                fileName: _currentFileName,
+                timestamp: new Date().getTime()
+            }));
+        } catch (e) {
+            console.error("History save failed", e);
+        }
+    }
+
+    function restoreActionHistory() {
+        try {
+            const saved = localStorage.getItem(HISTORY_KEY);
+            if (!saved) return;
+            const data = JSON.parse(saved);
+            if (data.fileName === _currentFileName && Array.isArray(data.history)) {
+                actionHistory = data.history.map(h => ({...h, time: new Date(h.time)}));
+            }
+        } catch (e) {
+            console.error("History restore failed", e);
+        }
+    }
+
+    function saveToLocalStorage() {
+        if (!fullDataset.length) return;
+        const data = {
+            fullDataset,
+            modifiedCells: Array.from(modifiedCells.entries()),
+            actionHistory,
+            currentFileName: _currentFileName,
+            timestamp: new Date().getTime()
+        };
+        try {
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+            saveActionHistory();
+        } catch (e) {
+            console.error("Auto-save failed", e);
+        }
+    }
+
+    function restoreFromLocalStorage() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return;
+        
+        try {
+            const data = JSON.parse(saved);
+            fullDataset = data.fullDataset;
+            buildCaches();
+            modifiedCells = new Map(data.modifiedCells);
+            actionHistory = data.actionHistory.map(h => ({...h, time: new Date(h.time)}));
+            _currentFileName = data.currentFileName || _currentFileName;
+            restoreActionHistory();
+            applyFilters();
+            refreshSidebar();
+            updateChangesBadge();
+            showFileName(data.currentFileName || _currentFileName || 'غير معروف', 'cache');
+            Swal.fire({ icon: 'success', title: 'تم استعادة البيانات المحفوظة تلقائياً', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 });
+        } catch (e) {
+            Swal.fire('خطأ', 'فشل في استعادة البيانات', 'error');
+        }
+    }
+
+    function clearLocalStorage() {
+        localStorage.removeItem(STORAGE_KEY);
+    }
+
+    function clearHistory() {
+        actionHistory = [];
+        localStorage.removeItem(HISTORY_KEY);
+    }
+
+    const SUPABASE_URL = "https://mzxhnbuiuyfklchkxigh.supabase.co/rest/v1/Nagy";
+    const _SUPABASE_KEY_ENC = "CxgtESJ1U1t7SDksNg87VCAILgoJXGIHV2I6UyoeAj04Ii1AbldJeERCQCgKOhsvFAU/OyhrXXROeyAsEDwcLwI7DjB2e10DAkQ0DRYsHDMeBT8VLVMCSl5ANBFXFCUBASgODilRXQtHeyAsVTwfIxsDVU0pfnN4RHgrNAo6GCBdLx0ScHx0c05vCSwQPB8zWgIkMHZ/WnMBbyckGzsYKF0sCUluQWF6d200JiBNChYcGx0OdwIEWEVSAjYwDws1HwgRGykDfQd+VB0OCxEQFg==";
+    function _getKey(){
+        try {
+            var p = 'nagy@2024!secure';
+            var d = atob(_SUPABASE_KEY_ENC);
+            var r = '';
+            for(var i=0;i<d.length;i++) r += String.fromCharCode(d.charCodeAt(i) ^ p.charCodeAt(i%p.length));
+            return r;
+        } catch(e){ return ''; }
+    }
+    const UPLOAD_COLS = ["الراسل", "اسم العميل", "الهاتف", "هاتف بديل", "العنوان", "المبلغ", "الحالة", "ملاحظات", "كود الشحنة", "المندوب", "التاريخ", "حالة المرتجع", "مكتب", "عمولة المندوب", "اليومية", "السعر بعد التعديل"];
+
+    const internalToUpload = {
+        sender: "الراسل", customerName: "اسم العميل", phone: "الهاتف", altPhone: "هاتف بديل",
+        address: "العنوان", amount: "المبلغ", status: "الحالة", 'ملاحظات': "ملاحظات",
+        code: "كود الشحنة", rep: "المندوب", 'التاريخ': "التاريخ", 'حالة المرتجع': "حالة المرتجع",
+        'مكتب': "مكتب", 'عمولة المندوب': "عمولة المندوب", 'اليومية': "اليومية",
+        'السعر بعد التعديل': "السعر بعد التعديل"
+    };
+
+    function rowToUploadRecord(row, idx) {
+        const r = {};
+        UPLOAD_COLS.forEach(c => {
+            let val = "";
+            if (c === "اسم العميل") {
+                val = row.customerName || row["اسم العميل"] || "";
+            } else if (c === "العنوان") {
+                val = row.address || row["العنوان"] || "";
+            } else if (c === "الزون") {
+                val = row.zone || row["الزون"] || "";
+            } else if (c === "المنتج") {
+                val = row.product || row["المنتج"] || "";
+            } else if (c === "الهاتف") {
+                val = row.phone || row["الهاتف"] || "";
+            } else if (c === "هاتف بديل") {
+                val = row.altPhone || row["هاتف بديل"] || "";
+            } else if (c === "المبلغ") {
+                val = row.amount || row["المبلغ"] || "";
+            } else if (c === "الراسل") {
+                val = row.sender || row["الراسل"] || "";
+            } else if (c === "كود الشحنة") {
+                val = row.code || row["كود الشحنة"] || "";
+            } else if (c === "الحالة") {
+                val = row.status || row["الحالة"] || "";
+            } else if (c === "المندوب") {
+                val = row.rep || row["المندوب"] || "";
+            } else {
+                val = row[c] || "";
+            }
+            val = String(val).trim();
+            if (c === "المبلغ") {
+                const n = parseFloat(val.replace(/[^\d.]/g, ''));
+                r[c] = isNaN(n) ? null : n;
+            } else if (c === "المبلغ") {
+                const n = parseFloat(val.replace(/[^\d.]/g, ''));
+                r[c] = isNaN(n) ? null : n;
+            } else {
+                r[c] = val || null;
+            }
+        });
+        return r;
+    }
+
+    function generateUniqueCode() {
+        const prefix = new Date().toISOString().slice(2,10).replace(/-/g,'');
+        const suffix = crypto.randomUUID().slice(0,6).toUpperCase();
+        return `${prefix}-${suffix}`;
+    }
+
+    async function uploadShipments() {
+        if (!fullDataset.length) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'لا توجد بيانات لرفعها' });
+            return;
+        }
+
+        // 1. كل الصفوف التي تحتوي على راسل
+        let rowsWithIdx = fullDataset
+            .map((r, i) => ({ row: r, idx: i }))
+            .filter(x => normalize(x.row.sender || x.row["الراسل"] || ""));
+        if (!rowsWithIdx.length) {
+            Swal.fire({ icon: 'warning', title: 'تنبيه', text: 'لا توجد شحنات تحتوي على راسل لرفعها' });
+            return;
+        }
+
+        // 2. بناء الـ payload
+        const payload = rowsWithIdx.map(x => rowToUploadRecord(x.row, x.idx));
+
+        // 3. توليد أكواد فريدة للشحنات المكررة أو بدون كود
+        const seenCodes = new Set();
+        let generatedCount = 0;
+        payload.forEach((r, pi) => {
+            const code = r["كود الشحنة"];
+            if (!code || seenCodes.has(code)) {
+                const newCode = generateUniqueCode();
+                r["كود الشحنة"] = newCode;
+                generatedCount++;
+                const origIdx = rowsWithIdx[pi].idx;
+                fullDataset[origIdx].code = newCode;
+                fullDataset[origIdx]['حدث'] = 'توليد كود';
+                if (!modifiedCells.has(origIdx+'_code')) modifiedCells.set(origIdx+'_code', '');
+                if (!modifiedCells.has(origIdx+'_حدث')) modifiedCells.set(origIdx+'_حدث', 'توليد كود');
+            }
+            seenCodes.add(r["كود الشحنة"]);
+        });
+
+        // 4. التحقق من اليومية الفارغة
+        const emptyDailyIndices = [];
+        payload.forEach((r, pi) => {
+            if (!normalize(r["اليومية"])) emptyDailyIndices.push(pi);
+        });
+        if (emptyDailyIndices.length) {
+            const { value, isConfirmed } = await Swal.fire({
+                icon: 'question', title: 'اليومية',
+                text: `${emptyDailyIndices.length} شحنة بدون قيمة في عمود اليومية. أدخل قيمة لتعبئتها تلقائياً:`,
+                input: 'text', inputPlaceholder: 'مثال: 100',
+                showCancelButton: true, confirmButtonText: 'تطبيق', cancelButtonText: 'إلغاء',
+                preConfirm: v => { if (!normalize(v)) { Swal.showValidationMessage('الرجاء إدخال قيمة'); } }
+            });
+            if (!isConfirmed) return;
+            const dailyVal = normalize(value);
+            emptyDailyIndices.forEach(pi => {
+                payload[pi]["اليومية"] = dailyVal;
+                const origIdx = rowsWithIdx[pi].idx;
+                fullDataset[origIdx]["اليومية"] = dailyVal;
+                if (!modifiedCells.has(origIdx+'_اليومية')) modifiedCells.set(origIdx+'_اليومية', '');
+            });
+        }
+
+        // 5. الاستعلام عن الأكواد الموجودة في Supabase لمعرفة الجديد من الموجود
+        const queryAc = new AbortController();
+        showLoading(true, 'جاري الاستعلام عن قاعدة البيانات...', 10, () => queryAc.abort());
+        let existingCodes = new Set();
+        try {
+            var _sk = await _getKey(); if(!_sk){ showLoading(false); Swal.fire({ icon:'error', title:'خطأ', text:'فشل فك تشفير مفتاح API' }); return; }
+            const res = await fetch(`${SUPABASE_URL}?select=كود الشحنة`, {
+                signal: queryAc.signal,
+                headers: {
+                    'apikey': _sk,
+                    'Authorization': `Bearer ${_sk}`
+                }
+            });
+            if (res.ok) {
+                const data = await res.json();
+                existingCodes = new Set((data || []).map(d => normalize(d["كود الشحنة"] || "")));
+            }
+        } catch(e) {
+            if (e.name === 'AbortError') { showLoading(false); Swal.fire({ icon: 'info', title: 'تم الإلغاء', text: 'تم إلغاء عملية الرفع', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 }); return; }
+            /* ignore; treat all as new */
+        }
+        if (_cancelRequested) { showLoading(false); return; }
+
+        // 6. تصنيف الشحنات
+        const newRows = [], updateRows = [];
+        payload.forEach((r, pi) => {
+            const code = r["كود الشحنة"];
+            if (code && existingCodes.has(code)) updateRows.push(pi);
+            else newRows.push(pi);
+        });
+
+        // 7. رفع الكل (upsert)
+        const uploadAc = new AbortController();
+        showLoading(true, `جاري رفع ${payload.length} شحنة...`, 30, () => uploadAc.abort());
+        try {
+            var _sk = await _getKey(); if(!_sk){ showLoading(false); Swal.fire({ icon:'error', title:'خطأ', text:'فشل فك تشفير مفتاح API' }); return; }
+            const res = await fetch(`${SUPABASE_URL}?on_conflict=كود الشحنة`, {
+                method: 'POST',
+                signal: uploadAc.signal,
+                headers: {
+                    'apikey': _sk,
+                    'Authorization': `Bearer ${_sk}`,
+                    'Content-Type': 'application/json',
+                    'Prefer': 'resolution=merge-duplicates'
+                },
+                body: JSON.stringify(payload)
+            });
+            if (res.ok) {
+                updateChangesBadge();
+                renderTable();
+                Swal.fire({
+                    icon: 'success', title: 'تم',
+                    text: `تم رفع ${payload.length} شحنة (${newRows.length} جديدة + ${updateRows.length} محدثة)${generatedCount ? `\nتم توليد ${generatedCount} كود جديد` : ''}`
+                });
+            } else {
+                const err = await res.text();
+                Swal.fire({ icon: 'error', title: 'خطأ', text: `فشل الرفع: ${err}` });
+            }
+        } catch (e) {
+            if (e.name === 'AbortError') { showLoading(false); Swal.fire({ icon: 'info', title: 'تم الإلغاء', text: 'تم إلغاء عملية الرفع', toast: true, position: 'top-end', showConfirmButton: false, timer: 2000 }); return; }
+            Swal.fire({ icon: 'error', title: 'خطأ في الاتصال', text: String(e) });
+        } finally {
+            showLoading(false);
+        }
+    }
+
+    function checkInitialRestore() {
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (saved) {
+            const data = JSON.parse(saved);
+            Swal.fire({
+                title: 'استعادة العمل السابق؟',
+                text: `تم العثور على نسخة محفوظة تلقائياً من جلسة سابقة (${new Date(data.timestamp).toLocaleString()}). هل تريد استعادتها؟`,
+                icon: 'info',
+                showCancelButton: true,
+                confirmButtonText: 'نعم، استعد',
+                cancelButtonText: 'لا، ابدأ جديد',
+                customClass: { popup: 'rounded-4' }
+            }).then(res => {
+                if (res.isConfirmed) restoreFromLocalStorage();
+                else showCachedFileBadge(data);
+            });
+        }
+    }
+
+    function showCachedFileBadge(data) {
+        const row = document.getElementById('fileNameRow');
+        const span = document.getElementById('fileNameDisplay');
+        const badge = document.getElementById('fileSourceBadge');
+        const container = document.getElementById('fileNameBadge');
+        span.innerText = data.currentFileName || 'جلسة سابقة';
+        badge.innerText = 'مخبأ';
+        container.style.background = 'var(--primary)';
+        container.style.color = '#fff';
+        badge.style.background = 'rgba(255,255,255,0.25)';
+        badge.style.color = '#fff';
+        container.style.cursor = 'pointer';
+        row.style.display = 'flex';
+    }
+
+    function clickFileNameBadge() {
+        if (fullDataset.length) return; // file already loaded
+        const saved = localStorage.getItem(STORAGE_KEY);
+        if (!saved) return;
+        restoreFromLocalStorage();
+    }
+
+    // Column Config Event
+    document.getElementById('columnsConfigBtn').onclick = () => {
+        const renderColList = () => {
+            return colOrder.map((c, i) => `
+                <div class="d-flex align-items-center justify-content-between p-2 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="checkbox" id="col-check-${c}" ${visibleCols.has(c)?'checked':''} onchange="toggleVisibleCol('${c}')">
+                        <label for="col-check-${c}" class="mb-0 fw-bold">${colDisplay[c] || c}</label>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveColOrder(${i}, -1)" ${i===0?'disabled':''}><i class="fas fa-chevron-up"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveColOrder(${i}, 1)" ${i===colOrder.length-1?'disabled':''}><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        };
+
+        Swal.fire({
+            title: 'تنسيق أعمدة الجدول',
+            html: `<div id="colConfigList" class="text-end">${renderColList()}</div>`,
+            showConfirmButton: true,
+            confirmButtonText: 'حفظ',
+            showDenyButton: true,
+            denyButtonText: 'استعادة الافتراضي',
+            customClass: { popup: 'rounded-4' }
+        }).then(result => {
+            if (result.isDenied) {
+                colOrder = [...allPossibleColumns];
+                visibleCols = new Set(defaultVisibleCols);
+                colWidths = {};
+                localStorage.removeItem('columns_order');
+                localStorage.removeItem('columns_visible');
+                localStorage.removeItem('columns_widths');
+                localStorage.removeItem('file_columns');
+                localStorage.removeItem('extra_columns');
+                _headerBuilt = false; renderTable();
+                Swal.fire('تم الاستعادة', 'تم العودة للشكل الافتراضي', 'success');
+            }
+        });
+    };
+
+    window.toggleVisibleCol = (c) => {
+        if (visibleCols.has(c)) visibleCols.delete(c);
+        else visibleCols.add(c);
+        localStorage.setItem('columns_visible', JSON.stringify(Array.from(visibleCols)));
+        _headerBuilt = false; renderTable();
+    };
+
+    window.initResize = (e, col) => {
+        e.preventDefault();
+        e.stopPropagation();
+        
+        const th = e.target.parentElement;
+        const startX = e.pageX;
+        const startWidth = th.offsetWidth;
+        const isRtl = document.documentElement.dir === 'rtl' || getComputedStyle(document.body).direction === 'rtl';
+
+        document.body.classList.add('resizing');
+
+        const onMouseMove = (moveEvent) => {
+            let delta = moveEvent.pageX - startX;
+            if (isRtl) delta = -delta; 
+            const newWidth = Math.max(60, startWidth + delta);
+            
+            colWidths[col] = newWidth;
+            th.style.width = newWidth + 'px';
+        };
+
+        const onMouseUp = () => {
+            document.removeEventListener('mousemove', onMouseMove);
+            document.removeEventListener('mouseup', onMouseUp);
+            document.body.classList.remove('resizing');
+            localStorage.setItem('columns_widths', JSON.stringify(colWidths));
+            renderTable();
+        };
+
+        document.addEventListener('mousemove', onMouseMove);
+        document.addEventListener('mouseup', onMouseUp);
+    };
+
+    window.moveColOrder = (index, direction) => {
+        const newIndex = index + direction;
+        if (newIndex < 0 || newIndex >= colOrder.length) return;
+        const temp = colOrder[index];
+        colOrder[index] = colOrder[newIndex];
+        colOrder[newIndex] = temp;
+        localStorage.setItem('columns_order', JSON.stringify(colOrder));
+        
+        // Refresh list in Swal without closing
+        const list = document.getElementById('colConfigList');
+        if (list) {
+            list.innerHTML = colOrder.map((c, i) => `
+                <div class="d-flex align-items-center justify-content-between p-2 border-bottom">
+                    <div class="d-flex align-items-center gap-3">
+                        <input type="checkbox" id="col-check-${c}" ${visibleCols.has(c)?'checked':''} onchange="toggleVisibleCol('${c}')">
+                        <label for="col-check-${c}" class="mb-0 fw-bold">${colDisplay[c]}</label>
+                    </div>
+                    <div class="d-flex gap-1">
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveColOrder(${i}, -1)" ${i===0?'disabled':''}><i class="fas fa-chevron-up"></i></button>
+                        <button class="btn btn-sm btn-outline-secondary" onclick="moveColOrder(${i}, 1)" ${i===colOrder.length-1?'disabled':''}><i class="fas fa-chevron-down"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+        _headerBuilt = false; renderTable();
+    };
+
+    // Events
+    const savedTheme = localStorage.getItem('theme');
+    if (savedTheme) document.body.setAttribute('data-bs-theme', savedTheme);
+    const empName = localStorage.getItem('employee_name');
+    if (empName) document.getElementById('employeeNameDisplay').innerText = empName;
+    updateClearFiltersBtnState();
+    checkInitialRestore();
+    rebuildSidebarTabs();
+    
+    document.getElementById('undoBtn').onclick = undoLastAction;
+    document.getElementById('historyBtn').onclick = showHistory;
+    document.getElementById('printLabelsBtn').onclick = printLabels;
+    document.getElementById('sidebarSaveBtn').onclick = handleSave;
+    document.getElementById('uploadShipmentsBtn').onclick = uploadShipments;
+    document.getElementById('exportSavedBtn').onclick = () => { document.getElementById('exportDialogOverlay').hidden = false; };
+    document.getElementById('exportRepOption').onclick = () => { document.getElementById('exportDialogOverlay').hidden = true; exportByRep(); };
+    document.getElementById('exportSenderOption').onclick = () => { document.getElementById('exportDialogOverlay').hidden = true; exportBySender(); };
+    document.getElementById('exportCacheOption').onclick = () => { document.getElementById('exportDialogOverlay').hidden = true; exportSavedCopy(); };
+    document.getElementById('exportDialogOverlay').addEventListener('click', function(e) { if (e.target === e.currentTarget) this.hidden = true; });
+    document.getElementById('loadExcelBtn').onclick = () => document.getElementById('excelFileInput').click();
+    document.getElementById('excelFileInput').onchange = (e) => handleFile(e.target.files[0]);
+    const debouncedFilter = debounce(() => { const v = document.getElementById('globalSearchInput').value; if (v.length >= 2 || v.length === 0) applyFilters(); }, 250);
+    document.getElementById('globalSearchInput').oninput = debouncedFilter;
+    document.getElementById('clearFiltersBtn').onclick = () => {
+        document.getElementById('globalSearchInput').value = "";
+        activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = [];
+        activeStatsFilter = "visible"; activeColumnFilters = {};
+        applyFilters(); refreshSidebar();
+    };
+    document.querySelectorAll('.toolbar-stat-filter').forEach(b => b.onclick = () => { 
+        if (b.dataset.statFilter === 'total') {
+            document.getElementById('globalSearchInput').value = "";
+            activeSenderFilter = []; activeRepFilter = []; activeStatusFilter = [];
+            activeColumnFilters = {};
+        }
+        activeStatsFilter = b.dataset.statFilter; 
+        applyFilters(); 
+        if (b.dataset.statFilter === 'total') refreshSidebar();
+    });
+    document.getElementById('sidebarColsConfigBtn').onclick = showSidebarColsConfig;
+    document.getElementById('themeToggleBtn').onclick = () => {
+        const theme = document.body.getAttribute('data-bs-theme')==='dark'?'light':'dark';
+        document.body.setAttribute('data-bs-theme', theme);
+        localStorage.setItem('theme', theme);
+    };
+
+    // QR Workspace Functions
+    function getQrWorkspaceElements() {
+        return {
+            overlay: document.getElementById('qrWorkspaceOverlay'),
+            codeCanvas: document.getElementById('qrCodeCanvas'),
+            sessionLink: document.getElementById('qrSessionLink'),
+            sessionNote: document.getElementById('qrSessionNote'),
+            connectionBadge: document.getElementById('qrConnectionBadge'),
+            scansCount: document.getElementById('qrScansCount'),
+            repInput: document.getElementById('qrRepInput'),
+            startSessionBtn: document.getElementById('qrStartSessionBtn'),
+            summaryTitle: document.getElementById('qrSessionSummaryTitle'),
+            summaryMeta: document.getElementById('qrSessionSummaryMeta'),
+            tableBody: document.getElementById('qrSessionTableBody')
+        };
+    }
+
+    function getQrSessionPayloadRows() {
+        return fullDataset.map(function(row) {
+            return {
+                customerName: normalize(String(row.customerName)),
+                zone: normalize(String(row.zone)),
+                product: normalize(String(row.product)),
+                phone: normalize(String(row.phone)),
+                altPhone: normalize(String(row.altPhone)),
+                amount: normalize(String(row.amount)),
+                sender: normalize(String(row.sender)),
+                code: normalize(String(row.code))
+            };
+        }).filter(function(row) { return row.code; });
+    }
+
+    function resetQrWorkspaceRows() {
+        qrSessionRows = [];
+        qrSessionCodes = new Set();
+        renderQrSessionRows();
+    }
+
+    function updateQrSessionSummaryTitle() {
+        var els = getQrWorkspaceElements();
+        if (!els.summaryTitle) return;
+        els.summaryTitle.innerText = qrAssignedRepName
+            ? 'جدول نتائج المسح | المندوب: ' + qrAssignedRepName
+            : 'جدول نتائج المسح';
+    }
+
+    function renderQrSessionRows() {
+        var els = getQrWorkspaceElements();
+        if (!els.tableBody || !els.summaryMeta) return;
+        els.summaryMeta.innerText = qrSessionRows.length + ' شحنة داخل جلسة QR';
+        if (!qrSessionRows.length) {
+            els.tableBody.innerHTML = '<tr><td colspan="8" class="qr-session-empty">افتح جلسة QR وسيظهر هنا كل كود يتم مسحه من الموبايل.</td></tr>';
+            return;
+        }
+        els.tableBody.innerHTML = qrSessionRows.map(function(row, i) {
+            var cls = i === 0 ? ' class="qr-scan-new"' : '';
+            return '<tr' + cls + '><td>' + escapeHtml(row.customerName) + '</td><td>' + escapeHtml(row.zone) + '</td><td>' + escapeHtml(row.product) + '</td><td>' + escapeHtml(row.phone) + '</td><td>' + escapeHtml(row.altPhone) + '</td><td>' + escapeHtml(row.amount) + '</td><td>' + escapeHtml(row.sender) + '</td><td>' + escapeHtml(row.code) + '</td></tr>';
+        }).join('');
+    }
+
+    function setQrWorkspaceStatus(opts) {
+        opts = opts || {};
+        var els = getQrWorkspaceElements();
+        if (els.connectionBadge) {
+            els.connectionBadge.classList.toggle('is-online', !!opts.phoneConnected);
+            var label = els.connectionBadge.querySelector('span');
+            if (label) label.innerText = opts.phoneConnected ? 'الموبايل: متصل الآن' : 'الموبايل: بانتظار الاتصال';
+        }
+        if (els.scansCount) els.scansCount.innerText = String(opts.scanCount || 0);
+        if (els.sessionNote) {
+            els.sessionNote.innerText = opts.note || (opts.phoneConnected
+                ? 'تم فتح الجلسة بنجاح. أي كود شحنة يتم مسحه سيظهر مباشرة في الجدول.'
+                : 'امسح رمز QR من الموبايل لبدء الجلسة.');
+        }
+    }
+
+    function renderQrCodeCanvas(url) {
+        var els = getQrWorkspaceElements();
+        if (!els.codeCanvas || !els.sessionLink) return;
+        els.sessionLink.innerText = url || 'سيظهر رابط الجلسة هنا.';
+        els.codeCanvas.innerHTML = '';
+        if (!url) { els.codeCanvas.innerText = 'تعذر إنشاء الرابط'; return; }
+        if (typeof QRCode === 'function') {
+            new QRCode(els.codeCanvas, { text: url, width: 220, height: 220, colorDark: '#111827', colorLight: '#ffffff', correctLevel: QRCode.CorrectLevel.M });
+            return;
+        }
+        els.codeCanvas.innerHTML = '<div style="padding:14px;font-size:0.85rem;line-height:1.6;">تعذر توليد صورة QR. استخدم الرابط التالي من الموبايل:<br>' + escapeHtml(url) + '</div>';
+    }
+
+    async function syncQrSessionStateOnce() {
+        if (!isDesktopApp() || !window.desktopAPI.getQrSessionState || !window.desktopAPI.getQrPendingScans) return;
+        if (!qrSessionInfo || qrSessionSyncPromise) return qrSessionSyncPromise;
+        qrSessionSyncPromise = (async function() {
+            var state = await window.desktopAPI.getQrSessionState();
+            if (!state || !state.active) {
+                setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: 'انتهت جلسة QR الحالية. أغلق النافذة وافتحها من جديد إذا أردت جلسة أخرى.' });
+                return;
+            }
+            var noteParts = [];
+            if (state.warning) noteParts.push(state.warning);
+            if (!state.phoneConnected) noteParts.push('امسح رمز QR من الهاتف لبدء الاتصال.');
+            setQrWorkspaceStatus({ phoneConnected: !!state.phoneConnected, scanCount: state.scanCount || 0, note: noteParts.join(' ') || '' });
+            var pendingRows = await window.desktopAPI.getQrPendingScans();
+            if (!Array.isArray(pendingRows) || !pendingRows.length) return;
+            pendingRows.forEach(function(entry) {
+                var row = (entry && entry.row) || {};
+                var code = normalize(String(row.code));
+                if (!code || qrSessionCodes.has(code)) return;
+                qrSessionCodes.add(code);
+                qrSessionRows.unshift({ customerName: normalize(String(row.customerName)), zone: normalize(String(row.zone)), product: normalize(String(row.product)), phone: normalize(String(row.phone)), altPhone: normalize(String(row.altPhone)), amount: normalize(String(row.amount)), sender: normalize(String(row.sender)), code: code });
+            });
+            renderQrSessionRows();
+            if (window.desktopAPI.checkQrSaveRequest) {
+                try { var saveRequest = await window.desktopAPI.checkQrSaveRequest(); if (saveRequest && saveRequest.saveRequested) handleSave(); } catch (err) { console.error('Error checking save request:', err); }
+            }
+        })().finally(function() { qrSessionSyncPromise = null; });
+        return qrSessionSyncPromise;
+    }
+
+    function startQrSessionPolling() {
+        stopQrSessionPolling();
+        qrSessionPollTimer = window.setInterval(function() { syncQrSessionStateOnce().catch(function() {}); }, 1200);
+    }
+
+    function stopQrSessionPolling() {
+        if (qrSessionPollTimer) { window.clearInterval(qrSessionPollTimer); qrSessionPollTimer = 0; }
+    }
+
+    async function openQrWorkspace() {
+        if (!isDesktopApp() || !window.desktopAPI.startQrSession) { Swal.fire('تنبيه', 'ميزة QR متاحة داخل نسخة سطح المكتب فقط.', 'info'); return; }
+        var els = getQrWorkspaceElements();
+        if (!els.overlay) return;
+        els.overlay.hidden = false;
+        qrSessionInfo = null;
+        resetQrWorkspaceRows();
+        updateQrSessionSummaryTitle();
+        setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: 'اكتب اسم المندوب أولًا ثم اضغط تفعيل الجلسة.' });
+        renderQrCodeCanvas('');
+        if (els.repInput) {
+            if (!qrAssignedRepName && quickAssignRepName) qrAssignedRepName = quickAssignRepName;
+            els.repInput.value = qrAssignedRepName;
+            setTimeout(function() { els.repInput.focus(); }, 40);
+        }
+        if (els.startSessionBtn) els.startSessionBtn.disabled = false;
+        if (els.sessionNote && !fullDataset.length) els.sessionNote.innerText = 'لا توجد بيانات Excel محملة الآن. يمكن فتح الجلسة، لكن أي كود لن يجد بيانات حتى يتم تحميل ملف.';
+    }
+
+    async function startQrWorkspaceSession() {
+        if (!isDesktopApp() || !window.desktopAPI.startQrSession) return;
+        var els = getQrWorkspaceElements();
+        qrAssignedRepName = normalize(String(els.repInput ? els.repInput.value : ''));
+        updateQrSessionSummaryTitle();
+        if (!qrAssignedRepName) {
+            setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: 'اسم المندوب إجباري داخل صفحة QR قبل بدء الجلسة.' });
+            if (els.repInput) els.repInput.focus();
+            Swal.fire('تنبيه', 'اكتب اسم المندوب أولًا داخل صفحة QR.', 'info');
+            return;
+        }
+        resetQrWorkspaceRows();
+        setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: 'جاري إنشاء جلسة QR...' });
+        renderQrCodeCanvas('');
+        if (els.startSessionBtn) els.startSessionBtn.disabled = true;
+        try {
+            var session = await window.desktopAPI.startQrSession({ rows: getQrSessionPayloadRows(), repName: qrAssignedRepName });
+            qrSessionInfo = session;
+            renderQrCodeCanvas(session ? session.url : '');
+            setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: (session && session.warning) || (!fullDataset.length ? 'تم فتح جلسة فارغة. حمّل ملف Excel ثم أعد فتح QR إذا أردت المسح على البيانات الحالية. عند فتح الرابط على الهاتف قد تظهر رسالة تحذير أمان، وبعد تجاوزها ستفتح الكاميرا.' : 'الجلسة جاهزة. امسح الرمز من الهاتف وسيظهر كل مسح في الجدول. عند فتح الرابط على الهاتف قد تظهر رسالة تحذير أمان، وبعد تجاوزها ستفتح الكاميرا.') });
+            await syncQrSessionStateOnce();
+            startQrSessionPolling();
+        } catch (err) {
+            qrSessionInfo = null;
+            renderQrCodeCanvas('');
+            setQrWorkspaceStatus({ phoneConnected: false, scanCount: 0, note: 'تعذر بدء جلسة QR الآمنة: ' + err.message });
+            Swal.fire('خطأ', 'تعذر بدء جلسة QR الآمنة: ' + err.message, 'error');
+        } finally {
+            if (els.startSessionBtn) els.startSessionBtn.disabled = false;
+        }
+    }
+
+    async function closeQrWorkspace() {
+        var els = getQrWorkspaceElements();
+        stopQrSessionPolling();
+        qrSessionInfo = null;
+        if (els.overlay) els.overlay.hidden = true;
+        resetQrWorkspaceRows();
+        if (isDesktopApp() && window.desktopAPI.stopQrSession) { try { await window.desktopAPI.stopQrSession(); } catch (_) {} }
+    }
+
+    // QR Event Handlers
+    document.getElementById('qrActionBtn').onclick = openQrWorkspace;
+    document.getElementById('closeQrWorkspaceBtn').onclick = closeQrWorkspace;
+    document.getElementById('qrStartSessionBtn').onclick = startQrWorkspaceSession;
+    document.getElementById('copyQrSessionLinkBtn').onclick = () => {
+        const link = document.getElementById('qrSessionLink').innerText;
+        if (link && link !== 'سيظهر رابط الجلسة هنا.') {
+            navigator.clipboard.writeText(link).then(() => {
+                Swal.fire({ icon: 'success', title: 'تم النسخ', timer: 1200, showConfirmButton: false });
+            }).catch(() => {
+                Swal.fire({ icon: 'error', title: 'فشل النسخ', timer: 1200, showConfirmButton: false });
+            });
+        } else {
+            Swal.fire({ icon: 'info', title: 'لا يوجد رابط بعد', text: 'فعّل الجلسة أولاً.', timer: 1500, showConfirmButton: false });
+        }
+    };
+
+    // Keyboard Shortcuts
+    window.addEventListener('keydown', (e) => {
+        // Ctrl + S: Save
+        if (e.ctrlKey && e.key === 's') {
+            e.preventDefault();
+            handleSave();
+        }
+        
+        // Ctrl + Z: Undo last action
+        if (e.ctrlKey && e.key === 'z') {
+            const tag = document.activeElement?.tagName;
+            if (tag !== 'INPUT' && tag !== 'TEXTAREA' && document.activeElement?.getAttribute('contenteditable') !== 'true') {
+                e.preventDefault();
+                undoLastAction();
+            }
+        }
+        
+        // Escape: Clear Filters / Close Dashboard
+        if (e.key === 'Escape') {
+            const dashboard = document.getElementById('dashboardOverlay');
+            if (dashboard.style.display === 'flex') {
+                document.getElementById('closeDashboardBtn').click();
+            } else {
+                document.getElementById('clearFiltersBtn').click();
+            }
+        }
+
+        // Arrow Keys Navigation for editable cells
+        const active = document.activeElement;
+        if (active && active.tagName === 'TD' && active.getAttribute('contenteditable') === 'true') {
+            if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Enter'].includes(e.key)) {
+                const tr = active.parentElement;
+                const editableCells = Array.from(tr.querySelectorAll('td[contenteditable="true"]'));
+                const colIdx = editableCells.indexOf(active);
+                const tbody = tr.parentElement;
+                const allRows = Array.from(tbody.querySelectorAll('tr'));
+                const rowIdx = allRows.indexOf(tr);
+
+                if (e.key === 'ArrowUp' && rowIdx > 0) {
+                    e.preventDefault();
+                    const targetCells = allRows[rowIdx - 1].querySelectorAll('td[contenteditable="true"]');
+                    if (targetCells[colIdx]) targetCells[colIdx].focus();
+                } else if ((e.key === 'ArrowDown' || (e.key === 'Enter' && !e.shiftKey)) && rowIdx < allRows.length - 1) {
+                    e.preventDefault();
+                    const targetCells = allRows[rowIdx + 1].querySelectorAll('td[contenteditable="true"]');
+                    if (targetCells[colIdx]) targetCells[colIdx].focus();
+                } else if (e.key === 'ArrowLeft') {
+                    const sel = window.getSelection();
+                    if (sel.anchorOffset === 0 && colIdx > 0) {
+                        e.preventDefault();
+                        editableCells[colIdx - 1].focus();
+                    }
+                } else if (e.key === 'ArrowRight') {
+                    const sel = window.getSelection();
+                    if (sel.anchorOffset === active.innerText.length && colIdx < editableCells.length - 1) {
+                        e.preventDefault();
+                        editableCells[colIdx + 1].focus();
+                    }
+                }
+            }
+        }
+    });
+
+</script>
+</body>
+</html>
